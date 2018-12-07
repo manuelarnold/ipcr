@@ -6,22 +6,22 @@
 #' @return NULL
 #' @examples
 #' # Display the iterated individual contribution regression parameters of all SEM parameters.
-#' summary(object = IPC_reg, method = "iterate")
+#' summary(object = IPC_reg, method = "iterated")
 #' @export summary.ipcr
 
 summary.ipcr <- function(object, parameter = NULL, method = "both") {
 
   # Check if IPC regression parameters have been estimated
-  if (any(c("StandardIPCRegression", "IteratedIPCRegression") %in% names(object))) {
+  if (any(c("StaticdIPCRegression", "IteratedIPCRegression") %in% names(object))) {
 
     # Select target parameters
     if (is.null(parameter)) {
-      parameter <- names(object$StandardIPCRegression)
+      parameter <- names(object$StaticIPCRegression)
     }
 
     # Number of parameters
     q <- length(parameter)
-    param_position <- which(names(object$StandardIPCRegression) %in% parameter)
+    param_position <- which(names(object$StaticIPCRegression) %in% parameter)
     significant <- FALSE
     output <- c()
 
@@ -32,7 +32,7 @@ summary.ipcr <- function(object, parameter = NULL, method = "both") {
 
       for (i in 1:q) {
         output[length(output) + 1] <- paste("Parameter:", parameter[i])
-        lm_summary <- capture.output(summary(object$StandardIPCRegression[[param_position[i]]]))
+        lm_summary <- capture.output(summary(object$StaticIPCRegression[[param_position[i]]]))
         start_row <- grep(pattern = "Coefficients:", x = lm_summary, fixed = TRUE) + 1
         if (identical(grep(pattern = "---", x = lm_summary, fixed = TRUE), integer(0))) {
           # no significant coefficents

@@ -18,5 +18,5 @@ This functions returns the estimated coefficients of the individual parameter co
 }
 \examples{
 # Display the iterated individual contribution regression parameters of all SEM parameters.
-summary(object = IPC_reg, method = "iterate")
+summary(object = IPC_reg, method = "iterated")
 }

@@ -4,7 +4,7 @@
 \alias{ipcr}
 \title{Individual parameter contribution regression}
 \usage{
-ipcr(fit, formula = NULL, covariates = NULL, iterate = F,
+ipcr(fit, formula = NULL, covariates = NULL, iterate = FALSE,
   convergence_criterion = 1e-04, max_it = 50)
 }
 \arguments{
@@ -21,7 +21,7 @@ ipcr(fit, formula = NULL, covariates = NULL, iterate = F,
 \item{max_it}{the maximum number of iterations.}
 }
 \value{
-IPC Returns a new ipcr object.
+Returns a new ipcr object.
 }
 \description{
 Explain parameter heterogeneity in a structural equation model (SEM) with individual parameter contribution (IPC) regression.
@@ -31,22 +31,22 @@ Explain parameter heterogeneity in a structural equation model (SEM) with indivi
 Model <- mxModel(manifestVars = c("x1", "x2", "x3", "y1", "y2", "y3"),
                  latentVars = c("xi", "eta"),
                  type = "RAM",
-                 mxData(observed = ipc_data, type = "raw"),
+                 mxData(observed = ipcr_data, type = "raw"),
                  mxPath(from = "xi", to = c("x1", "x2", "x3"),
                         connect = "single", arrows = 1,
-                        free = c(F, T, T), values = 1,
+                        free = c(FALSE, TRUE, TRUE), values = 1,
                         labels = c("l11", "l22", "l33")),
                  mxPath(from = "eta", to = c("y1", "y2", "y3"),
-                 connect = "single", arrows = 1, free = c(F, T, T),
+                 connect = "single", arrows = 1, free = c(FALSE, TRUE, TRUE),
                  values = 1, labels = c("l44", "l55", "l66")),
-                 mxPath(from = "xi", to = "eta", arrows = 1, free = T,
+                 mxPath(from = "xi", to = "eta", arrows = 1, free = TRUE,
                  values = 0.5, labels = "beta"),
                  mxPath(from = c("xi", "eta", "x1", "x2", "x3", "y1", "y2", "y3"),
-                        connect = "single", arrows = 2, free = T,
+                        connect = "single", arrows = 2, free = TRUE,
                         values = c(0.75, 0.555, rep(0.25, 6)),
                         labels = c("phi11", "phi22", "e11", "e22", "e33", "e44", "e55", "e66")),
                  mxPath(from = "one", to = c("x1", "x2", "x3", "y1", "y2", "y3"),
-                        connect = "single", arrows = 1, free = T, values = 0,
+                        connect = "single", arrows = 1, free = TRUE, values = 0,
                          labels = c("m_x1", "m_x2", "m_x3", "m_y1", "m_y2", "m_y3"))
 )
 
@@ -54,8 +54,9 @@ Model <- mxModel(manifestVars = c("x1", "x2", "x3", "y1", "y2", "y3"),
 Fit <- mxTryHard(model = Model)
 
 # Run the model
-IPC_reg <- ipcr(fit = Fit, formula = ~ z1 + z2, covariates = ipc_data, iterate = T)
+IPC_reg <- ipcr(fit = Fit, formula = ~ z1 + z2, covariates = ipcr_data, iterate = TRUE)
 
-# Display the iterated individual parameter contribution regression estimates of beta
-summary(object = IPC_reg, parameter = "beta", method = "iterate")
+# Display the iterated individual parameter contribution regression estimates of the
+regression coefficient beta
+summary(object = IPC_reg, parameter = "beta", method = "iterated")
 }
