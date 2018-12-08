@@ -1,7 +1,7 @@
 #' @title Individual parameter contribution regression
 #' @description Explain parameter heterogeneity in a structural equation model (SEM) with individual parameter contribution (IPC) regression.
-#' @param fit a SEM estimated with OpenMx.
-#' @param formula a regression equation formula.
+#' @param fit a SEM estimated with OpenMx. The model must contain an estimated covariance structure. The mean structure is optional.
+#' @param formula a regression equation formula. Interaction between regressors and polynominals are not implemented yet. You can add these terms as new regressors to the covariates data frame.
 #' @param covariates a data frame or matrix with the IPC predictor variables.
 #' @param iterate a logical value; if TRUE (default) iterated IPC regression is performed after static IPC regression.
 #' @param convergence_criterion an integer used as stopping criterion for iterated IPC regression. Criterion is the largest difference in all parameter estimate between iterations.
@@ -68,7 +68,7 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
     centered_data <- scale(x = data_obs, center = TRUE, scale = FALSE)
     moment_contributions <- matrix(data = apply(X = centered_data, MARGIN = 1,
                                                 FUN = function (x) {matrixcalc::vech(x %*% t(x))}),
-                                   nrow = N, ncol = p_star)
+                                   nrow = N, ncol = p_star, byrow = TRUE)
     expected_cov <- mxGetExpected(model = fit, component = "covariance")
     vech_cov_matrix <- matrix(data = rep(x = matrixcalc::vech(expected_cov), times = N),
                               byrow = TRUE, nrow = N, ncol = p_star)
@@ -176,7 +176,7 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
         data_igscentered <- data_obs - sapply(X = igsmc_reg, FUN = function(x){x$fitted.values})
         mom_cont_igsmc <- matrix(data = apply(X = data_igscentered, MARGIN = 1,
                                               FUN = function (x) {matrixcalc::vech(x %*% t(x))}),
-                                 nrow = N, ncol = p_star)
+                                 nrow = N, ncol = p_star, byrow = TRUE)
         if (mean_structure) {
           mom_cont_igsmc <- cbind(mom_cont_igsmc, data_obs)
         }

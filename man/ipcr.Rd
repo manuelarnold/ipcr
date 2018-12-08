@@ -8,9 +8,9 @@ ipcr(fit, formula = NULL, covariates = NULL, iterate = FALSE,
   convergence_criterion = 1e-04, max_it = 50)
 }
 \arguments{
-\item{fit}{a SEM estimated with OpenMx.}
+\item{fit}{a SEM estimated with OpenMx. The model must contain an estimated covariance structure. The mean structure is optional.}
 
-\item{formula}{a regression equation formula.}
+\item{formula}{a regression equation formula. Interaction between regressors and polynominals are not implemented yet. You can add these terms as new regressors to the covariates data frame.}
 
 \item{covariates}{a data frame or matrix with the IPC predictor variables.}
 
