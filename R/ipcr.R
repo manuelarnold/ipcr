@@ -47,7 +47,7 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
 
   # Check for missing data SEM data
   # Compute the IPCs if the data is complete
-  data_obs <- fit$data$observed[, fit$manifestVars]
+  data_obs <- fit$data$observed[, fit$manifestVars, drop = FALSE]
 
   if (!any(is.na(data_obs))) {
 
@@ -66,10 +66,11 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
 
     # Calculate the individual deviations between observed and estimated moments
     centered_data <- scale(x = data_obs, center = TRUE, scale = FALSE)
-    moment_contributions <- t(apply(X = centered_data, MARGIN = 1,
-                                    FUN = function (x) matrixcalc::vech(x %*% t(x))))
+    moment_contributions <- matrix(data = apply(X = centered_data, MARGIN = 1,
+                                                FUN = function (x) {matrixcalc::vech(x %*% t(x))}),
+                                   nrow = N, ncol = p_star)
     expected_cov <- mxGetExpected(model = fit, component = "covariance")
-    vech_cov_matrix <- matrix(data = rep(x = vech(expected_cov), times = N),
+    vech_cov_matrix <- matrix(data = rep(x = matrixcalc::vech(expected_cov), times = N),
                               byrow = TRUE, nrow = N, ncol = p_star)
     moment_deviations <- moment_contributions - vech_cov_matrix
     if (mean_structure) {
@@ -87,7 +88,13 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
       jacobian <- jacobian[1:p_star, ]
     }
     expected_cov_inv <- solve(expected_cov)
-    D <- duplication.matrix(n = p)
+
+    # This can later be replaced with the lavaan duplication matrix (it can handle p = 1)
+    if (p == 1) {
+      D <- matrix(data = 1)
+    } else {
+      D <- duplication.matrix(n = p)
+    }
     V <- 0.5 * t(D) %*% kronecker(X = expected_cov_inv, Y = expected_cov_inv) %*% D
     if (mean_structure) {
       V_m_cov <- matrix(data = 0, nrow = p_star_means, ncol = p_star_means)
@@ -97,13 +104,13 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
     }
     W <- solve(t(jacobian) %*% V %*% jacobian) %*% t(jacobian) %*% V
 
-    # Calculate the initial IPCs
-    initial_IPC <- matrix(data = rep(x = param_estimates, times = N),
-                          byrow = TRUE, nrow = N, ncol = q) + moment_deviations %*% t(W)
-    initial_IPC <- as.data.frame(x = initial_IPC)
+    # Calculate the static IPCs
+    static_IPC <- data.frame(matrix(data = rep(x = param_estimates, times = N),
+                                    byrow = TRUE, nrow = N, ncol = q) + moment_deviations %*% t(W))
+    colnames(static_IPC) <- param_names
 
     # Store the results
-    IPC <- list("StaticIPCs" = initial_IPC)
+    IPC <- list("StaticIPCs" = static_IPC)
 
     # Status report
     cat("Static IPCs computed\n")
@@ -131,14 +138,14 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
     IPC_reg_list <- list()
 
     # Select covariates from the provided data set
-    covariates <- covariates[, IV_separated]
+    covariates <- covariates[, IV_separated, drop = FALSE]
 
     # Check for missing data in the covariates
     # Compute the IPC regression parameter estimates if the data is complete
     if (!any(is.na(covariates))) {
 
       # Run initial IPC regression
-      IPC_reg_data <- cbind(initial_IPC, covariates)
+      IPC_reg_data <- cbind(static_IPC, covariates)
       for (i in 1:length(target_parameters)) {
         IPC_reg_eq[i] <- paste(target_parameters[i], "~", IV)
         IPC_reg_list[[i]] <- do.call(what = "lm", args = list(formula = as.formula(IPC_reg_eq[i]),
@@ -160,15 +167,16 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
 
         # Calculate individual- or group-specific contributions to the observed moments
         igsmc_reg <- list()
-        data_igsmc <- cbind(data_obs, covariates)
+        data_igsmc <- data.frame(cbind(data_obs, covariates))
         for (i in 1:p) {
           igsmc_reg[[i]] <- do.call(what = "lm",
                                     args = list(formula = as.formula(paste0(fit$manifestVars[i], "~", IV)),
                                                 data = as.name("data_igsmc")))
         }
         data_igscentered <- data_obs - sapply(X = igsmc_reg, FUN = function(x){x$fitted.values})
-        mom_cont_igsmc <- as.matrix(t(apply(X = data_igscentered, MARGIN = 1,
-                                            FUN = function(x){vech(x%*%t(x))})))
+        mom_cont_igsmc <- matrix(data = apply(X = data_igscentered, MARGIN = 1,
+                                              FUN = function (x) {matrixcalc::vech(x %*% t(x))}),
+                                 nrow = N, ncol = p_star)
         if (mean_structure) {
           mom_cont_igsmc <- cbind(mom_cont_igsmc, data_obs)
         }
@@ -200,7 +208,7 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
         IPC_reg_list_up <- IPC_reg_list
         param_up <- c()
         moment_deviations_up <- moment_deviations
-        updated_IPC <- initial_IPC
+        updated_IPC <- static_IPC
         nr_iterations <- 0
         difference <- rep(x = 1, times = ncol(estimates_matrix))
 
@@ -235,7 +243,7 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
             # the individual deviations between observed and estimated moments
             moment_deviations_up <- data.frame(moment_deviations_up)
             moment_deviations_up[ID_group, 1:p_star] <- mom_cont_igsmc[ID_group, 1:p_star] -
-              matrix(data = rep(x = vech(expected_cov_up), times = n_group), byrow = TRUE,
+              matrix(data = rep(x = matrixcalc::vech(expected_cov_up), times = n_group), byrow = TRUE,
                      nrow = n_group, ncol = p_star)
             if (mean_structure) {
               expected_means_up <- mxGetExpected(model = fit_up[[i]], component = "means")
@@ -279,6 +287,7 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
         names(IPC)[4] <- "IteratedIPCRegression"
 
       }
+
     } else {
       warning("Incomplete covariates data. IPC regression parameter cannot be estimated.",
               call. = FALSE)
@@ -291,5 +300,4 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
     warning("Incomplete SEM data. IPCs cannot be calculated",
             .Call = FALSE)
   }
-
 }
