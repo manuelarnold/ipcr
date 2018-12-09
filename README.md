@@ -45,8 +45,8 @@ Fit <- mxTryHard(model = Model)
 # Run the model
 IPC_reg <- ipcr(fit = Fit, formula = ~ z1 + z2, covariates = ipcr_data, iterate = TRUE)
 
-# Display the iterated individual parameter contribution regression estimates of the
-regression coefficient beta
+# Display the iterated individual parameter contribution regression estimates of the 
+# regression coefficient beta
 summary(object = IPC_reg, parameter = "beta", method = "iterated"
 ```
 
