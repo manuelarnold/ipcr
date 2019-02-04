@@ -54,7 +54,7 @@ ipcr <- function(fit, formula = NULL, covariates = NULL, iterate = FALSE,
     ### Calculate the initial IPCs
 
     # Basic information about the data set and model
-    N <- fit$output$data[[1]]
+    N <- fit$output$data[[1]][[1]]
     p <- length(fit$manifestVars)
     p_star <- (p * (p + 1)) / 2
     p_star_means <- p * (p + 3) / 2
