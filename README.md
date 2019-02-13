@@ -1,7 +1,9 @@
 # Introduction
 
 ipcr is an R package that makes it easy for researchers to study heterogeneity in the parameter estimates of a structural equation model (SEM)  with [individual parameter contribution (IPC) regression](https://psyarxiv.com/sbyux/). IPC regression allows regressing SEM parameter estimates on additional covariates.
+
 ipcr requires that the SEM is fitted with R package [OpenMx](https://openmx.ssri.psu.edu/). As of now, only single-group RAM-type OpenMx models are supported. Moreover, the data used to estimate the SEM and the additional covariates need to be complete without any missing values.
+
 This package is still under development. Please report any bugs.
 
 # Installation

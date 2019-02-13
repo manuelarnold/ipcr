@@ -7,7 +7,7 @@ Maintainer: Manuel Arnold <arnoldmz@hu-berlin.de>
 Description: Identify and estimate parameter heterogeneity in structural equation 
     models (SEM) fitted with OpenMx using individual parameter contribution (IPC)
     regression. This package is still under development. Pleaser report any bugs.
-Depends: R (>= 3.5.2),
+Depends: R (>= 3.1.0),
     ggplot2 (>= 3.1.0),
     matrixcalc (>= 1.0-3),
     OpenMx (>= 2.12.2),
