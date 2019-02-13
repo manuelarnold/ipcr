@@ -2,61 +2,54 @@
 % Please edit documentation in R/ipcr.R
 \name{ipcr}
 \alias{ipcr}
-\title{Individual parameter contribution regression}
+\title{Individual Parameter Contribution Regression}
 \usage{
-ipcr(fit, formula = NULL, covariates = NULL, iterate = FALSE,
-  convergence_criterion = 1e-04, max_it = 50)
+ipcr(fit, covariates = NULL, iterated = FALSE, conv = 1e-04,
+  max_it = 50)
 }
 \arguments{
-\item{fit}{a SEM estimated with OpenMx. The model must contain an estimated covariance structure. The mean structure is optional.}
+\item{fit}{a structural equation model estimated with OpenMx. Only single-group RAM-type OpenMx model are allowed. The model must contain an estimated covariance structure. The mean structure is optional.}
 
-\item{formula}{a regression equation formula. Interaction between regressors and polynominals are not implemented yet. You can add these terms as new regressors to the covariates data frame.}
+\item{covariates}{a data frame or matrix with covariates.}
 
-\item{covariates}{a data frame or matrix with the IPC predictor variables.}
+\item{iterated}{a logical value; if TRUE iterated IPC regression is performed after initial IPC regression.}
 
-\item{iterate}{a logical value; if TRUE (default) iterated IPC regression is performed after static IPC regression.}
+\item{max_it}{the maximum number of iterations for iterated IPC regressions.}
 
 \item{convergence_criterion}{an integer used as stopping criterion for iterated IPC regression. Criterion is the largest difference in all parameter estimate between iterations.}
-
-\item{max_it}{the maximum number of iterations.}
 }
 \value{
 Returns a new ipcr object.
 }
 \description{
-Explain parameter heterogeneity in a structural equation model (SEM) with individual parameter contribution (IPC) regression.
+Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
 }
 \examples{
 # Specify an OpenMx model
-Model <- mxModel(manifestVars = c("x1", "x2", "x3", "y1", "y2", "y3"),
-                 latentVars = c("xi", "eta"),
-                 type = "RAM",
-                 mxData(observed = ipcr_data, type = "raw"),
-                 mxPath(from = "xi", to = c("x1", "x2", "x3"),
-                        connect = "single", arrows = 1,
-                        free = c(FALSE, TRUE, TRUE), values = 1,
-                        labels = c("l11", "l22", "l33")),
-                 mxPath(from = "eta", to = c("y1", "y2", "y3"),
-                 connect = "single", arrows = 1, free = c(FALSE, TRUE, TRUE),
-                 values = 1, labels = c("l44", "l55", "l66")),
-                 mxPath(from = "xi", to = "eta", arrows = 1, free = TRUE,
-                 values = 0.5, labels = "beta"),
-                 mxPath(from = c("xi", "eta", "x1", "x2", "x3", "y1", "y2", "y3"),
-                        connect = "single", arrows = 2, free = TRUE,
-                        values = c(0.75, 0.555, rep(0.25, 6)),
-                        labels = c("phi11", "phi22", "e11", "e22", "e33", "e44", "e55", "e66")),
-                 mxPath(from = "one", to = c("x1", "x2", "x3", "y1", "y2", "y3"),
-                        connect = "single", arrows = 1, free = TRUE, values = 0,
-                         labels = c("m_x1", "m_x2", "m_x3", "m_y1", "m_y2", "m_y3"))
-)
+m <- mxModel(model = "CFA",
+            manifestVars = c("x1", "x2", "x3"),
+            latentVars = "f",
+            type = "RAM",
+            mxData(observed = ipcr_data, type = "raw"),
+            mxPath(from = "f", to = c("x1", "x2", "x3"), arrows = 1,
+                   free = c(FALSE, TRUE, TRUE), values = 1,
+                   labels = c("l1", "l2", "l3")),
+            mxPath(from = "f", arrows = 2, free = TRUE, values = 0.75,
+                   labels = "var_f"),
+            mxPath(from = c("x1", "x2", "x3"), arrows = 2, free = TRUE,
+                   values = 0.25, labels = c("e1", "e2", "e3")),
+            mxPath(from = "one", to = c("x1", "x2", "x3"), arrows = 1,
+                   free = FALSE, values = 0))
 
 # Fit the model
-Fit <- mxTryHard(model = Model)
+fit <- mxTryHard(model = m)
 
-# Run the model
-IPC_reg <- ipcr(fit = Fit, formula = ~ z1 + z2, covariates = ipcr_data, iterate = TRUE)
+# Investigate the parameter estiamtes with IPC regression
+IPC_reg <- ipcr(fit = fit, covariates = ipcr_covariates, iterated = TRUE)
 
-# Display the iterated individual parameter contribution regression estimates of the
-regression coefficient beta
-summary(object = IPC_reg, parameter = "beta", method = "iterated")
+# Get an overview about parameter differences
+plot(IPC_reg)
+
+# Show IPC regression output
+summary(object = IPC_reg)
 }

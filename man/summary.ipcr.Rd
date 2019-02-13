@@ -9,14 +9,14 @@
 \arguments{
 \item{object}{an ipcr object.}
 
-\item{parameter}{a character vector with the target parameters of the structural equation model (SEM) that are to be inspected.}
+\item{parameter}{a character vector with the target parameters that are to be inspected.}
 
-\item{method}{a character string indicating the method to be used; for method = "both" static and iterated IPC regression is used (default), for method = "static" only static IPC coefficients are displayed, and for method = "iterate" only iterated coefficients are shown.}
+\item{method}{a character string indicating the method to be used; for method = "both" initial and iterated IPC regression is used (default), for method = "initial" only initial IPC coefficients are displayed, and for method = "iterated" only iterated coefficients are shown.}
 }
 \description{
 This functions returns the estimated coefficients of the individual parameter contribution (IPC) regression equations as well as the corresponding standard errors, t-values, and p-values.
 }
 \examples{
-# Display the iterated individual contribution regression parameters of all SEM parameters.
-summary(object = IPC_reg, method = "iterated")
+# Show the IPC regression output
+summary(object = IPC_reg)
 }
