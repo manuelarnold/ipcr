@@ -70,11 +70,10 @@ summary.ipcr <- function(object, parameter = NULL, method = "both") {
     if (all(c("InitialIPCRegression", "IteratedIPCRegression") %in% names(object))) {
       method_checked <- "both"
     } else {
-      if (!("InitialIPCRegression" %in% names(object))) {
-        output[length(output) + 1] <- warning("Error: Initial IPC regression paramters have not been estimated.")
-      }
-      if (!("IteratedIPCRegression" %in% names(object))) {
-        output[length(output) + 1] <- warning("Error: Iterated IPC regression paramters have not been estimated.")
+      if ("InitialIPCRegression" %in% names(object)) {
+        method_checked <- "initial"
+      } else {
+        output[length(output) + 1] <- warning("Error: No IPC regression paramters have been estimated.")
       }
     }
   }

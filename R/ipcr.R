@@ -65,9 +65,12 @@ ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
     }
   }
 
-  if (is.null(colnames(covariates)) | any(is.na(colnames(covariates)))) {
-    colnames(covariates) <- paste0("z", 1:NCOL(covariates))
-    IPC$Info$covariates <- colnames(covariates)
+  # Name the covariates if needed
+  if (!is.null(covariates)) {
+    if (is.null(colnames(covariates)) | any(is.na(colnames(covariates)))) {
+      colnames(covariates) <- paste0("z", 1:NCOL(covariates))
+      IPC$Info$covariates <- colnames(covariates)
+    }
   }
 
   # Basic information about the data set and model
@@ -115,7 +118,13 @@ ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
     cat("Initial IPC regression parameters estimated\n")
 
   } else {
-    warning("Missing data in covariates. IPC regression parameters cannot be estimated.", .Call = FALSE)
+    if (IPC$Info$covariates[1] == "no covariates specified") {
+      warning("No covariates specified.", call. = FALSE)
+    }
+    if(IPC$Info$covariates[1] == "missing data in covariates") {
+      warning("Missing data in covariates. IPC regression parameters cannot be estimated."
+              , call. = FALSE)
+    }
   }
 
 
@@ -161,8 +170,8 @@ ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
         IPC_reg_data_it <- data.frame(cbind(updated_IPCs, X$covariates))
         for (i in 1:X$q) {
           X$IPC_reg[[i]] <- do.call(what = "lm",
-                                          args = list(formula = paste(X$param_names[i], "~", IV),
-                                                      data = as.name("IPC_reg_data_it")))
+                                    args = list(formula = paste(X$param_names[i], "~", IV),
+                                                data = as.name("IPC_reg_data_it")))
         }
 
         # Store results
