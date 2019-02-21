@@ -15,6 +15,7 @@ get_model_info <- function(fit, covariates) {
                N = fit$output$data[[1]][[1]],
                data_obs = fit$data$observed[, fit$manifestVars, drop = FALSE],
                p = p,
+               p_unf = nrow(fit$A$values),
                p_star = (p * (p + 1)) / 2,
                p_star_means = p * (p + 3) / 2,
                mean_structure = ms,

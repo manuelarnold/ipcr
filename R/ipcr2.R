@@ -1,4 +1,4 @@
-#' @title Individual Parameter Contribution Regression
+#' @title Individual Parameter Contribution Regression (With Analytic Jacobian)
 #' @description Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
 #' @param fit a structural equation model estimated with OpenMx. Only single-group RAM-type OpenMx model are allowed. The model must contain an estimated covariance structure. The mean structure is optional.
 #' @param covariates a data frame or matrix with covariates.
@@ -34,9 +34,9 @@
 #'
 #' # Show IPC regression output
 #' summary(object = IPC_reg)
-#' @export ipcr
+#' @export
 
-ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
+ipcr2 <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
                  max_it = 50) {
 
   ### Preparations
@@ -75,6 +75,9 @@ ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
 
   # Basic information about the data set and model
   X <- get_model_info(fit = fit, covariates = covariates)
+
+  # If linear model is true
+  X <- c(X, RAM_deriv = list(get_analytic_jac_input(x = X)))
 
   # Save model parameter names
   IPC$Info$parameters <- X$param_names
@@ -159,7 +162,7 @@ ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
           breakdown == FALSE) {
 
       # Update the IPCs for every individual in each group
-      updated_IPCs <- try(get_updated_IPCs(x = X), silent = TRUE)
+      updated_IPCs <- try(get_updated_IPCs2(x = X), silent = TRUE)
       if (class(updated_IPCs) == "try-error") {
         breakdown <- TRUE
       }

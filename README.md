@@ -16,6 +16,9 @@ devtools::install_github("manuelarnold/ipcr")
 
 # Example
 ``` r
+# Load the ipcr package
+library(ipcr)
+
 # Specify an OpenMx model
 m <- mxModel(model = "CFA",
              manifestVars = c("x1", "x2", "x3"),
