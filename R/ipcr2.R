@@ -1,5 +1,5 @@
 #' @title Individual Parameter Contribution Regression (With Analytic Jacobian)
-#' @description Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
+#' @description Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates. Requires an SEM without nonlinear parameter constraints. This function should be faster than the numeric version ipcr.
 #' @param fit a structural equation model estimated with OpenMx. Only single-group RAM-type OpenMx model are allowed. The model must contain an estimated covariance structure. The mean structure is optional.
 #' @param covariates a data frame or matrix with covariates.
 #' @param iterated a logical value; if TRUE iterated IPC regression is performed after initial IPC regression.
@@ -34,10 +34,10 @@
 #'
 #' # Show IPC regression output
 #' summary(object = IPC_reg)
-#' @export
+#' @export ipcr2
 
 ipcr2 <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
-                 max_it = 50) {
+                  max_it = 50) {
 
   ### Preparations
 
@@ -193,10 +193,15 @@ ipcr2 <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
           breakdown == FALSE) {
 
       # Update the IPCs for every individual in each group
-      updated_IPCs <- try(get_updated_IPCs2(x = X, updated_IPCs, A_up, S_up,
-                                            M_up, F_up, Ident, RAM_params,
-                                            RAM_coord),
-                          silent = TRUE)
+      # updated_IPCs <- try(get_updated_IPCs2(x = X, updated_IPCs, A_up, S_up,
+      #                                      M_up, F_up, Ident, RAM_params,
+      #                                     RAM_coord),
+      #                        silent = TRUE)
+
+      updated_IPCs <- get_updated_IPCs2(x = X, updated_IPCs, A_up, S_up,
+                                        M_up, F_up, Ident, RAM_params,
+                                        RAM_coord)
+
       if (class(updated_IPCs) == "try-error") {
         breakdown <- TRUE
       }
