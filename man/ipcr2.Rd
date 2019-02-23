@@ -22,7 +22,7 @@ ipcr2(fit, covariates = NULL, iterated = FALSE, conv = 1e-04,
 Returns a new ipcr object.
 }
 \description{
-Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
+Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates. Requires an SEM without nonlinear parameter constraints. This function should be faster than the numeric version ipcr.
 }
 \examples{
 # Specify an OpenMx model

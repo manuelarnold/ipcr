@@ -4,10 +4,24 @@
 \alias{get_updated_IPCs2}
 \title{Update the Individual Contributions to the Parameter Estimates}
 \usage{
-get_updated_IPCs2(x, ...)
+get_updated_IPCs2(x, A_up, S_up, M_up, F_up, Ident, RAM_params, RAM_coord)
 }
 \arguments{
 \item{x}{list with information about the model.}
+
+\item{A_up}{object.}
+
+\item{S_up}{object.}
+
+\item{M_up}{object.}
+
+\item{F_up}{object.}
+
+\item{Ident}{object.}
+
+\item{RAM_params}{object.}
+
+\item{RAM_coord}{object.}
 }
 \value{
 Matrix of initial individual parameter contributions.

@@ -1,10 +1,18 @@
 #' @title Update the Individual Contributions to the Parameter Estimates
 #' @description Internal function that updates the individual contributions to the parameter estimates.
 #' @param x list with information about the model.
+#' @param A_up object.
+#' @param S_up object.
+#' @param M_up object.
+#' @param F_up object.
+#' @param Ident object.
+#' @param RAM_params object.
+#' @param RAM_coord object.
 #' @return Matrix of initial individual parameter contributions.
 #' @export
 
-get_updated_IPCs2 <- function(x, ...) {
+get_updated_IPCs2 <- function(x, A_up, S_up, M_up, F_up, Ident, RAM_params,
+                              RAM_coord) {
 
   # Storing objects
   updated_IPCs <- matrix(NA, nrow = x$N, ncol = x$q)

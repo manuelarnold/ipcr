@@ -180,7 +180,7 @@ ipcr2 <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
         RAM_coord[[i]] <- which(X$fit$S$labels == X$param_names[i], arr.ind = TRUE)
       }
       if (RAM_params[i] == "M") {
-        RAM_coord[[i]] <- which(X$fit$M$labels == X$param_names[i], arr.ind = TRUE)
+        RAM_coord[[i]] <- which(t(X$fit$M$labels) == X$param_names[i], arr.ind = TRUE)
       }
     }
 
@@ -192,15 +192,10 @@ ipcr2 <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
     while(nr_iterations < max_it & isFALSE(all(abs(difference) < conv)) &
           breakdown == FALSE) {
 
-      # Update the IPCs for every individual in each group
-      # updated_IPCs <- try(get_updated_IPCs2(x = X, updated_IPCs, A_up, S_up,
-      #                                      M_up, F_up, Ident, RAM_params,
-      #                                     RAM_coord),
-      #                        silent = TRUE)
-
-      updated_IPCs <- get_updated_IPCs2(x = X, updated_IPCs, A_up, S_up,
-                                        M_up, F_up, Ident, RAM_params,
-                                        RAM_coord)
+      updated_IPCs <- try(get_updated_IPCs2(x = X, A_up = A_up, S_up = S_up,
+                                            M_up = M_up, F_up = F_up, Ident = Ident,
+                                            RAM_params = RAM_params,
+                                            RAM_coord = RAM_coord))
 
       if (class(updated_IPCs) == "try-error") {
         breakdown <- TRUE
