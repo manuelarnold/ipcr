@@ -153,6 +153,37 @@ ipcr2 <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
                    cent_md = get_centered_moment_deviations(x = X),
                    group = get_groups(x = X)))
 
+    ### Prepare input for get_updated_IPCs2.
+
+    # These matrices change across groups
+    A_up <- fit$A$values
+    S_up <- fit$S$values
+    M_up <- t(fit$M$values)
+    F_up <- fit$F$values
+
+    # Identity matrix for (I - A)^(-1)
+    Ident <- diag(x = 1, nrow = X$p_unf)
+
+    # Assign SEM parameters to the corresponding RAM matrices
+    RAM_params <- rep(NA, X$q)
+    RAM_params[which(X$param_names %in% X$fit$A$labels)] <- "A"
+    RAM_params[which(X$param_names %in% X$fit$S$labels)] <- "S"
+    RAM_params[which(X$param_names %in% X$fit$M$labels)] <- "M"
+
+    # Get coordinates of the parameters in the corresponding RAM matrices
+    RAM_coord <- list()
+    for (i in 1:X$q) {
+      if (RAM_params[i] == "A") {
+        RAM_coord[[i]] <- which(X$fit$A$labels == X$param_names[i], arr.ind = TRUE)
+      }
+      if (RAM_params[i] == "S") {
+        RAM_coord[[i]] <- which(X$fit$S$labels == X$param_names[i], arr.ind = TRUE)
+      }
+      if (RAM_params[i] == "M") {
+        RAM_coord[[i]] <- which(X$fit$M$labels == X$param_names[i], arr.ind = TRUE)
+      }
+    }
+
     # Start the iteration process
     nr_iterations <- 0
     difference <- rep(x = conv + 1, times = NCOL(it_est))
@@ -162,7 +193,10 @@ ipcr2 <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
           breakdown == FALSE) {
 
       # Update the IPCs for every individual in each group
-      updated_IPCs <- try(get_updated_IPCs2(x = X), silent = TRUE)
+      updated_IPCs <- try(get_updated_IPCs2(x = X, updated_IPCs, A_up, S_up,
+                                            M_up, F_up, Ident, RAM_params,
+                                            RAM_coord),
+                          silent = TRUE)
       if (class(updated_IPCs) == "try-error") {
         breakdown <- TRUE
       }

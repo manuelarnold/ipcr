@@ -4,7 +4,7 @@
 \alias{get_updated_IPCs2}
 \title{Update the Individual Contributions to the Parameter Estimates}
 \usage{
-get_updated_IPCs2(x)
+get_updated_IPCs2(x, ...)
 }
 \arguments{
 \item{x}{list with information about the model.}

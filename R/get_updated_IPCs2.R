@@ -4,13 +4,12 @@
 #' @return Matrix of initial individual parameter contributions.
 #' @export
 
-get_updated_IPCs2 <- function(x) {
+get_updated_IPCs2 <- function(x, ...) {
 
-  # Storing object for the updated deviations from the sample moments
+  # Storing objects
+  updated_IPCs <- matrix(NA, nrow = X$N, ncol = X$q)
   md <- x$cent_md
-
-  # Storing object for the updated IPCs
-  updated_IPCs <- matrix(NA, nrow = x$N, ncol = x$q)
+  param_estimates <- rep(NA, x$q)
 
   # Update the IPCs of individual or group i
   for (i in unique(x$group[, 2])) {
@@ -18,30 +17,48 @@ get_updated_IPCs2 <- function(x) {
     n_group <- length(ID_group)
     IPC_pred <- c(1, x$covariates[which(x$group[, 2] == i)[1],])
 
-    for (j in 1:x$q) {
-      x$param_estimates[j] <- sum(coef(x$IPC_reg[[j]]) * IPC_pred)
+
+
+    # Update RAM matrices
+    for (j in 1:x$q){
+
+      param_estimates[j] <- sum(coef(x$IPC_reg[[j]]) * IPC_pred)
+
+      if (RAM_params[j] == "A") {
+        A_up[RAM_coord[[j]]] <- sum(coef(x$IPC_reg[[j]]) * IPC_pred)
+      }
+
+      if (RAM_params[j] == "S") {
+        S_up[RAM_coord[[j]]] <- sum(coef(x$IPC_reg[[j]]) * IPC_pred)
+      }
+
+      if (RAM_params[j] == "M") {
+        M_up[RAM_coord[[j]]] <- sum(coef(x$IPC_reg[[j]]) * IPC_pred)
+      }
     }
-    x$fit <- omxSetParameters(model = x$fit, labels = x$param_names,
-                              values = x$param_estimates)
-    x$fit <- suppressMessages(mxRun(model = x$fit, useOptimizer = FALSE))
 
-    # Update expected covariance and inverse
-    x$exp_cov <- mxGetExpected(model = x$fit, component = "covariance")
-    x$exp_cov_inv <- solve(x$exp_cov)
+    # Update sample covariance
+    B_up <- solve(Ident - A_up)
+    exp_cov_up <- F_up %*% B_up %*% S_up %*% t(B_up) %*% t(F_up)
+    exp_cov_inv_up <- solve(exp_cov_up)
 
-    jacobian <- get_analytic_jac(x = x)
+    # Update weight matrix and jacobian matrix
+    jacobian <- get_analytic_jac_up(x = x, A_up = A_up, S_up = S_up,
+                                    M_up = M_up, F_up = F_up, B_up = B_up)
     if (x$mean_structure == FALSE) {
       jacobian <- jacobian[1:x$p_star, ]
     }
-    V <- get_weight_matrix(x = x)
+    V <- get_weight_matrix2(x = x, exp_cov_inv_up = exp_cov_inv_up)
     W <- solve(t(jacobian) %*% V %*% jacobian) %*% t(jacobian) %*% V
 
+    # Update the centered contributions to the sample moments
     md <- as.data.frame(md)
     md[ID_group, 1:x$p_star] <- x$cent_md[ID_group, 1:x$p_star] -
-      matrix(rep(x = matrixcalc::vech(x$exp_cov), times = n_group), byrow = TRUE,
+      matrix(rep(x = matrixcalc::vech(exp_cov_up), times = n_group), byrow = TRUE,
              nrow = n_group, ncol = x$p_star)
     if (x$mean_structure) {
-      exp_means <- mxGetExpected(model = x$fit, component = "means")
+      ### !!!! Orientation could be wrong
+      exp_means <- F_up %*% B_up %*% M_up
       means_matrix <- matrix(rep(x = exp_means, times = x$N), byrow = TRUE,
                              nrow = x$N, ncol = x$p)
       means_dev <- x$data_obs - means_matrix
@@ -50,7 +67,7 @@ get_updated_IPCs2 <- function(x) {
     md <- as.matrix(md)
 
     updated_IPCs[ID_group, ] <- md[ID_group, ] %*% t(W) +
-      matrix(rep(x = x$param_estimates, times = n_group), byrow = TRUE,
+      matrix(rep(x = param_estimates, times = n_group), byrow = TRUE,
              nrow = n_group, ncol = x$q)
   }
 
