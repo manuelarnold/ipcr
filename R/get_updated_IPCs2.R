@@ -7,7 +7,7 @@
 get_updated_IPCs2 <- function(x, ...) {
 
   # Storing objects
-  updated_IPCs <- matrix(NA, nrow = X$N, ncol = X$q)
+  updated_IPCs <- matrix(NA, nrow = x$N, ncol = x$q)
   md <- x$cent_md
   param_estimates <- rep(NA, x$q)
 
