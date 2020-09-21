@@ -35,7 +35,7 @@
 #'
 #' # Show IPC regression output
 #' summary(object = IPC_reg)
-#' @export ipcr3
+#' @export ipcr
 
 ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
                   max_it = 50, linear = TRUE) {

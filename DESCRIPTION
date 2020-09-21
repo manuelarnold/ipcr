@@ -1,23 +1,19 @@
 Package: ipcr
 Type: Package
 Title: Individual Parameter Contribution Regression
-Version: 0.1.0
+Version: 0.2.0
 Author: person("Manuel", "Arnold", email = "arnoldmz@hu-berlin.de", role = c("aut", "cre"))
 Maintainer: Manuel Arnold <arnoldmz@hu-berlin.de>
-Description: Identify and estimate parameter heterogeneity in structural equation 
-    models (SEM) fitted with OpenMx using individual parameter contribution (IPC)
-    regression. This package is still under development. Pleaser report any bugs.
-Depends: R (>= 3.1.0),
-    ggplot2 (>= 3.1.0),
-    matrixcalc (>= 1.0-3),
-    OpenMx (>= 2.12.2),
-    reshape2 (>= 1.4.3)
+Description: Identify and estimate parameter heterogeneity in structural equation models
+    and other parametric models. This package is still under development. Please report
+    any bugs.
+Depends: R (>= 3.1.0)
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Imports:
-    ggplot2 (>= 3.1.0),
-    matrixcalc (>= 1.0-3),
-    OpenMx (>= 2.12.2),
-    reshape2 (>= 1.4.3)
+    ggplot2,
+    lavaan,
+    OpenMx,
+    sandwich,
 RoxygenNote: 7.1.1
