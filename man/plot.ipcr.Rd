@@ -4,14 +4,12 @@
 \alias{plot.ipcr}
 \title{Plot Correlation between Covariates and IPCs}
 \usage{
-\method{plot}{ipcr}(x, ipc_method = "initial", cor_method = "pearson")
+\method{plot}{ipcr}(x, parameter = NULL, method = "iterated", ...)
 }
 \arguments{
 \item{x}{an ipcr object.}
 
-\item{ipc_method}{character string indicating whether the relationship between covariates and initial IPCs (method = “initial”, default option) or the iterated IPCs (method = “iterated”) is drawn.}
-
-\item{cor_method}{a character string indicating which correlation coefficient (or covariance) is to be computed. One of "pearson" (default), "kendall", or "spearman".}
+\item{method}{character string indicating whether the relationship between covariates and initial IPCs (method = “initial”, default option) or the iterated IPCs (method = “iterated”) is drawn.}
 }
 \description{
 This functions plots a heat map that visualizes the correlation between covariates and IPCs.

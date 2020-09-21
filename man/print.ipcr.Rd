@@ -7,12 +7,8 @@
 \method{print}{ipcr}(x)
 }
 \arguments{
-\item{object}{an ipcr object.}
+\item{x}{an ipcr object.}
 }
 \description{
-This function prints the some of the main information of an ipcr object.
-}
-\examples{
-# Print main information
-print(x = IPC_reg)
+This function prints the main information of an ipcr object.
 }

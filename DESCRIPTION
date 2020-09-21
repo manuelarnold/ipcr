@@ -20,4 +20,4 @@ Imports:
     matrixcalc (>= 1.0-3),
     OpenMx (>= 2.12.2),
     reshape2 (>= 1.4.3)
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.1

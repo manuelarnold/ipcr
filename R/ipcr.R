@@ -1,11 +1,12 @@
 #' @title Individual Parameter Contribution Regression
-#' @description Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
-#' @param fit a structural equation model estimated with OpenMx. Only single-group RAM-type OpenMx model are allowed. The model must contain an estimated covariance structure. The mean structure is optional.
+#' @description Explain parameter heterogeneity in a fitted model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
+#' @param fit a fitted model object.
 #' @param covariates a data frame or matrix with covariates.
 #' @param iterated a logical value; if TRUE iterated IPC regression is performed after initial IPC regression.
 #' @param convergence_criterion an integer used as stopping criterion for iterated IPC regression. Criterion is the largest difference in all parameter estimate between iterations.
 #' @param max_it the maximum number of iterations for iterated IPC regressions.
-#' @return Returns a new ipcr object.
+#' @param linear for MxRAMModel-type models only. A logical value indicating if the structural equation model is linear (default) or non linear.
+#' @return Returns an ipcr object.
 #' @examples
 #' # Specify an OpenMx model
 #' m <- mxModel(model = "CFA",
@@ -34,182 +35,118 @@
 #'
 #' # Show IPC regression output
 #' summary(object = IPC_reg)
-#' @export ipcr
+#' @export ipcr3
 
 ipcr <- function(fit, covariates = NULL, iterated = FALSE, conv = 0.0001,
-                 max_it = 50) {
+                  max_it = 50, linear = TRUE) {
 
-  ### Preparations
+  #### Checks #####
+  # Get model data
+  model_data <- get_data(fit)
+
+  # Transform covariates into data frame
+  # covariates = NULL is preserved
+  covariates <- as.data.frame(covariates)
 
   # Check if the arguments are correct
-  get_arguments_checked(fit = fit, covariates = covariates, iterated = iterated,
-                        conv = conv, max_it = max_it)
+  check_ipcr_arguments(fit = fit, iterated = iterated, conv = conv,
+                       max_it = max_it, linear = linear, model_data = model_data)
 
   # Storing object for output
-  IPC <- list("Info" = list(name = fit$name))
+  IPC <- list("info" = list(name = deparse(substitute(fit)),
+                            class = class(fit)))
 
-  # Check covariates for missing and add information to the output
+  # Status code
+  # 0: everything is fine (required for iterated IPCR)
+  # 1: missing data in covariates (run standard IPCR with complete observations)
+  # 2: no covariates found (only compute IPCs)
+
+  # Check covariates
   if (is.null(covariates)) {
-    IPC$Info$covariates <- "no covariates specified"
+    status_code <- 2
+    IPC$info$covariates <- "no covariates found"
   } else {
     if (all(complete.cases(covariates))) {
-      covariates <- as.matrix(covariates)
+      status_code <- 0
+    } else {
+      status_code <- 1
+      warning("Missing data in covariates detected. Standard IPC regression is performed using complete observations (rows).")
+    }
+    if (is.null(names(covariates)) | any(is.na(names(covariates)))) {
+      warning("Some covariate are not named. Renaming all covariates using the order of the data.frame.")
+      colnames(covariates) <- paste0("covariate", seq_len(NCOL(covariates)))
+    }
+    IPC$info$covariates <- names(covariates)
+  }
+
+  # Iterated IPC regression
+  if (all(iterated, status_code == 0)) {
+    IPC <- iterated_ipcr(fit, IPC = IPC, covariates = covariates, conv = conv,
+                         max_it = max_it, linear = linear)
+  } else { ### Begin: perform standard IPC regression ###
+
+    # Check covariates for missing and add information to the output
+    if (is.null(covariates)) {
+      IPC$info$covariates <- "no covariates specified"
+    } else {
+      if (all(complete.cases(covariates))) {
+        covariates <- as.matrix(covariates)
+        if (is.null(colnames(covariates)) | any(is.na(colnames(covariates)))) {
+          colnames(covariates) <- paste0("z", 1:NCOL(covariates))
+        }
+        IPC$info$covariates <- colnames(covariates)
+        IPC$covariates <- covariates
+
+      } else {
+        IPC$info$covariates <- "missing data in covariates"
+      }
+    }
+
+    # Name the covariates if needed
+    if (!is.null(covariates)) {
       if (is.null(colnames(covariates)) | any(is.na(colnames(covariates)))) {
         colnames(covariates) <- paste0("z", 1:NCOL(covariates))
-      }
-      IPC$Info$covariates <- colnames(covariates)
-      IPC$Covariates <- covariates
-
-    } else {
-      IPC$Info$covariates <- "missing data in covariates"
-    }
-  }
-
-  # Name the covariates if needed
-  if (!is.null(covariates)) {
-    if (is.null(colnames(covariates)) | any(is.na(colnames(covariates)))) {
-      colnames(covariates) <- paste0("z", 1:NCOL(covariates))
-      IPC$Info$covariates <- colnames(covariates)
-    }
-  }
-
-  # Basic information about the data set and model
-  X <- get_model_info(fit = fit, covariates = covariates)
-
-  # Save model parameter names
-  IPC$Info$parameters <- X$param_names
-
-
-  ### Calculate initial IPCs
-
-  # Get individual deviations from the sample moments
-  X$moment_deviations <- get_moment_deviations(x = X)
-
-  # Get initial IPCs
-  X$initial_IPCs <- get_initial_IPCs(x = X)
-
-  # Store initial IPCs
-  IPC$InitialIPCs <- X$initial_IPCs
-
-  # Status report
-  cat("Initial IPCs computed\n")
-
-
-  ### Initial IPC regression
-
-  if (IPC$Info$covariates[1] != "no covariates specified" &
-      IPC$Info$covariates[1] != "missing data in covariates") {
-
-    IPC_reg_data <- cbind(X$initial_IPCs, X$covariates)
-    IPC_reg_list <- list()
-    IV <- paste(colnames(covariates), collapse = " + ")
-
-    for (i in 1:X$q) {
-      IPC_reg_list[[i]] <- do.call(what = "lm",
-                                   args = list(formula = paste(X$param_names[i], "~", IV),
-                                               data = as.name("IPC_reg_data")))
-    }
-
-    names(IPC_reg_list) <- X$param_names
-    IPC$InitialIPCRegression <- IPC_reg_list
-
-
-    # Status report
-    cat("Initial IPC regression parameters estimated\n")
-
-  } else {
-    if (IPC$Info$covariates[1] == "no covariates specified") {
-      warning("No covariates specified.", call. = FALSE)
-    }
-    if(IPC$Info$covariates[1] == "missing data in covariates") {
-      warning("Missing data in covariates. IPC regression parameters cannot be estimated."
-              , call. = FALSE)
-    }
-  }
-
-
-  ### Iterated IPC Regression
-
-  if (iterated == TRUE &
-      IPC$Info$covariates[1] != "no covariates specified" &
-      IPC$Info$covariates[1] != "missing data in covariates") {
-
-    # Add convergence criterion to info
-    IPC$Info$convergence_criterion <- conv
-
-    # Storing objects for the updating procedure
-    it_est <- matrix(sapply(X = IPC_reg_list,
-                            FUN = function(x) {coef(x)}),
-                     nrow = 1, ncol = X$q * (X$z + 1))
-    it_se <- matrix(sapply(X = IPC_reg_list,
-                           FUN = function(x) {sqrt(diag(vcov(x)))}),
-                    nrow = 1, ncol = X$q * (X$z + 1))
-
-    # Add new information to list
-    X <- c(X, list(IPC_reg = IPC_reg_list,
-                   cent_md = get_centered_moment_deviations(x = X),
-                   group = get_groups(x = X)))
-
-    # Start the iteration process
-    nr_iterations <- 0
-    difference <- rep(x = conv + 1, times = NCOL(it_est))
-    breakdown <- FALSE
-
-    while(nr_iterations < max_it & isFALSE(all(abs(difference) < conv)) &
-          breakdown == FALSE) {
-
-      # Update the IPCs for every individual in each group
-      updated_IPCs <- try(get_updated_IPCs(x = X), silent = TRUE)
-      if (class(updated_IPCs) == "try-error") {
-        breakdown <- TRUE
-      }
-
-      if (breakdown == FALSE) {
-
-        # Estimate updated IPC regression parameter
-        IPC_reg_data_it <- data.frame(cbind(updated_IPCs, X$covariates))
-        for (i in 1:X$q) {
-          X$IPC_reg[[i]] <- do.call(what = "lm",
-                                    args = list(formula = paste(X$param_names[i], "~", IV),
-                                                data = as.name("IPC_reg_data_it")))
-        }
-
-        # Store results
-        it_est <- rbind(it_est, c(sapply(X = X$IPC_reg,
-                                         FUN = function(x) {coef(x)})))
-        it_se <- rbind(it_se, c(sapply(X = X$IPC_reg,
-                                       FUN = function(x) {sqrt(diag(vcov(x)))})))
-
-        # Covergence criteria
-        difference <- it_est[nrow(it_est), ] -
-          it_est[nrow(it_est) - 1, ]
-        nr_iterations <- nr_iterations + 1
-        cat("Iteration:", nr_iterations, "\n")
-
+        IPC$info$covariates <- colnames(covariates)
       }
     }
 
-    # Error reports
-    if (breakdown == TRUE) {
-      cat("The iterated IPC regression aborted prematurely.")
-      IPC$Info$iterated <- "Iterated IPC regression aborted prematurely."
-    }
 
-    if(breakdown == FALSE & nr_iterations == max_it &
-       isFALSE(all(abs(difference) <= conv))) {
-      cat(paste("The iterated IPC regression algorithm did not converge after", max_it, "iterations. Consider to increase the maximum number of iterations."))
-      IPC$Info$iterated <- paste("Iterated IPC regression reached the maximum number of", max_it, "iterations without converging.")
-    }
+    #### Compute IPCs ####
+    # Information from fitted object
+    n <- nobs(fit)
+    param_estimates <- coef(fit)[-c(2,3,4, 7:9)]
+    q <- length(param_estimates)
+    param_names <- IPC$info$parameters <- names(param_estimates)
 
-    if(breakdown == FALSE & nr_iterations < max_it &
-       isFALSE(all(abs(difference) > conv))) {
-      cat("Iterated IPC regression converged.")
-      IPC$Info$iterate <- paste("Iterated IPC regression converged succesfully after", nr_iterations, "iterations.")
-      IPC$IteratedIPCs <- as.data.frame(updated_IPCs)
-      IPC$IteratedIPCRegression <- X$IPC_reg
-    }
+    # Compute score
+    scores <- sandwich::estfun(fit)
+    bread_matrix <- sandwich::bread(fit)[-c(2,3,4, 7:9), -c(2,3,4, 7:9)]
+    IPCs <- data.frame(matrix(param_estimates, nrow = n, ncol = q, byrow = TRUE) +
+                         scores %*% t(bread_matrix))
+    colnames(IPCs) <- param_names
+    IPC$IPCs <- IPCs
 
-  }
+
+    ##### IPC Regression ####
+    if (IPC$info$covariates[1] != "no covariates specified" &
+        IPC$info$covariates[1] != "missing data in covariates") {
+
+      ipcr_data <- cbind(IPCs, covariates)
+      param_names_ipcr <- paste0("IPCs_", gsub("\\(|\\)", "", param_names))
+      param_names_ipcr <- gsub(pattern = "~~",replacement = ".WITH.", x = param_names_ipcr)
+      param_names_ipcr <- gsub(pattern = "~",replacement = ".ON.", x = param_names_ipcr)
+      colnames(ipcr_data)[seq_len(q)] <- param_names_ipcr
+      ipcr_list <- list()
+      IV <- paste(colnames(covariates), collapse = " + ")
+      for (i in seq_len(q)) {
+        ipcr_list[[i]] <- do.call(what = "lm",
+                                  args = list(formula = paste(param_names_ipcr[i], "~", IV),
+                                              data = as.name("ipcr_data")))
+      }
+      names(ipcr_list) <- param_names
+      IPC$regression <- ipcr_list
+    }
+  } # End: perform standard IPC regression
 
   class(IPC) <- "ipcr"
   return(IPC)

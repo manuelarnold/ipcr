@@ -1,8 +1,8 @@
 #' @title Inidividual Parameter Contribution Regression Summary
 #' @description This functions returns the estimated coefficients of the individual parameter contribution (IPC) regression equations as well as the corresponding standard errors, t-values, and p-values.
 #' @param object an ipcr object.
-#' @param parameter a character vector with the target model parameters that are to be inspected.
-#' @param method a character string indicating the method to be used; for method = "both" initial and iterated IPC regression is used (default), for method = "initial" only initial IPC coefficients are displayed, and for method = "iterated" only iterated coefficients are shown.
+#' @param parameter a character vector with the target parameters that are to be inspected.
+#' @param method a character string indicating the method to be used; for method = "both" standard and iterated IPC regression is used (default), for method = "standard" only standard IPC coefficients are displayed, and for method = "iterated" only iterated coefficients are shown.
 #' @return NULL
 #' @examples
 #' # Show the IPC regression output
@@ -10,6 +10,14 @@
 #' @export summary.ipcr
 
 summary.ipcr <- function(object, parameter = NULL, method = "iterated") {
+
+  # Check if IPC regression has been run
+  if (is.null(object$regression)) {stop("IPC regression has not been run")}
+
+  # Select method
+  if (method %in% c("iterated", "both") & is.null(object$iterated_regression)) {
+    method <- "standard"
+  }
 
   # Check arguments
   if (!is.null(parameter)) {
@@ -22,37 +30,31 @@ summary.ipcr <- function(object, parameter = NULL, method = "iterated") {
     stop("'method' must be either 'standard', 'iterated', or 'both'")
   }
 
-  if(method %in% c("iterated", "both") & is.null(object$iterated_regression)) {
-    method <- "standard"
-  }
-
   # Write header
-  output <- "Individual parameter contribution regression summary"
+  output <- "IPC regression summary"
 
   # Add white space
   output[length(output) + 1] <- ""
 
   # Add information from print.ipcr
-  output[length(output) + 1] <- paste("Model name:", object$info$name)
-  output[length(output) + 1] <- paste("Model class:", object$info$class)
-  output[length(output) + 1] <- paste("Model parameters:", paste(object$info$parameters, collapse = ", "))
+  output[length(output) + 1] <- paste("Model under investigation:", object$info$name)
+  output[length(output) + 1] <- paste("Model class:", paste(object$info$class, collapse = ", "))
+  if (method %in% c("standard", "iterated")) {
+    output[length(output) + 1] <- paste("IPC regression method:", object$info$method)
+  }
+  if (method == "both") {
+    output[length(output) + 1] <- paste("IPC regression method:", "standard & iterated")
+  }
   output[length(output) + 1] <- paste("Covariates:", paste(object$info$covariates, collapse = ", "))
-  if(!is.null(object$iterated_regression))
-  {
-    output[length(output) + 1] <- paste("Convergence criterion:", object$info$conv)
-    output[length(output) + 1] <- paste("Iteration:", object$info$iterate)
+  if("convergence_criterion" %in% names(object$info)) {
+    output[length(output) + 1] <- paste("Convergence criterion:", object$info$convergence_criterion)
+  }
+  if("iteratations" %in% names(object$info)) {
+    output[length(output) + 1] <- paste("Number of iterations:", object$info$iterations)
   }
 
   # Add whitespace
   output[length(output) + 1] <- ""
-
-  # Check if standard IPC regression parameters have been estimated
-  if (method == "standard") {
-    if (is.null(object$regression)) {
-      output[length(output) + 1] <- "IPC regression has not been performed"
-      return(writeLines(output))
-    }
-  }
 
   # Select target parameters
   if (is.null(parameter)) {
@@ -64,12 +66,12 @@ summary.ipcr <- function(object, parameter = NULL, method = "iterated") {
   param_position <- which(names(object$regression) %in% parameter)
   significant <- FALSE
 
-  # Add output for initial IPC regression estimates
+  # Add output for standard IPC regression estimates
   if (method == "standard" | method == "both") {
 
     output[length(output) + 1] <- "Standard IPC regression parameter estimates:"
 
-    for (i in seq_len(q)) {
+    for (i in 1:q) {
       output[length(output) + 1] <- paste("Parameter:", parameter[i])
       lm_summary <- capture.output(summary(object$regression[[param_position[i]]]))
       start_row <- grep(pattern = "Coefficients:", x = lm_summary, fixed = TRUE) + 1
@@ -100,7 +102,7 @@ summary.ipcr <- function(object, parameter = NULL, method = "iterated") {
 
     output[length(output) + 1] <- "Iterated IPC regression parameter estimates:"
 
-    for (i in seq_len(q)) {
+    for (i in 1:q) {
       output[length(output) + 1] <- paste("Parameter:", parameter[i])
       lm_summary <- capture.output(summary(object$iterated_regression[[param_position[i]]]))
       start_row <- grep(pattern = "Coefficients:", x = lm_summary, fixed = TRUE) + 1

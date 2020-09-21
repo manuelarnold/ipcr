@@ -4,11 +4,17 @@
 \alias{ipcr}
 \title{Individual Parameter Contribution Regression}
 \usage{
-ipcr(fit, covariates = NULL, iterated = FALSE, conv = 1e-04,
-  max_it = 50)
+ipcr(
+  fit,
+  covariates = NULL,
+  iterated = FALSE,
+  conv = 1e-04,
+  max_it = 50,
+  linear = TRUE
+)
 }
 \arguments{
-\item{fit}{a structural equation model estimated with OpenMx. Only single-group RAM-type OpenMx model are allowed. The model must contain an estimated covariance structure. The mean structure is optional.}
+\item{fit}{a fitted model object.}
 
 \item{covariates}{a data frame or matrix with covariates.}
 
@@ -16,13 +22,15 @@ ipcr(fit, covariates = NULL, iterated = FALSE, conv = 1e-04,
 
 \item{max_it}{the maximum number of iterations for iterated IPC regressions.}
 
+\item{linear}{for MxRAMModel-type models only. A logical value indicating if the structural equation model is linear (default) or non linear.}
+
 \item{convergence_criterion}{an integer used as stopping criterion for iterated IPC regression. Criterion is the largest difference in all parameter estimate between iterations.}
 }
 \value{
-Returns a new ipcr object.
+Returns an ipcr object.
 }
 \description{
-Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
+Explain parameter heterogeneity in a fitted model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
 }
 \examples{
 # Specify an OpenMx model
