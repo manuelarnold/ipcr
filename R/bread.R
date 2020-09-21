@@ -1,7 +1,7 @@
 #' @title Bread Matrix of the Sandwich Matrix
 #' @description These functions extract an estimator for the bread of sandwiches.
 #' @param x a fitted model object.
-#' @... arguments passed to methods.
+#' @param ... arguments passed to methods.
 #' @return Returns a matrix.
 #' @export
 

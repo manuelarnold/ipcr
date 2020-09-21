@@ -1,7 +1,7 @@
 #' @title Iterated Individual Parameter Contribution Regression
 #' @description This function performs iterated individual parameter contribution regression for fitted MxRAM-type models.
 #' @param x a fitted model object
-#' @... arguments passed to methods.
+#' @param ... arguments passed to methods.
 #' @return Returns a data frame.
 #' @export
 

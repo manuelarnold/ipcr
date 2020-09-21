@@ -1,7 +1,7 @@
 #' @title Extract the Number of Observations from an ipcr Object
 #' @description Extract the number of observations from an ipcr object.
 #' @param object an ipcr object.
-#' @... arguments passed to methods.
+#' @param ... arguments passed to methods.
 #' @return A single integer.
 #' @export
 

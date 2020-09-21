@@ -1,7 +1,7 @@
 #' @title Get the data used to fit the model
 #' @description This function gets the data used to fit the model and returns it as data frame.
 #' @param x a fitted model object
-#' @... arguments passed to methods.
+#' @param ... arguments passed to methods.
 #' @return Returns a data frame.
 #' @export
 

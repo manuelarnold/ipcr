@@ -3,7 +3,7 @@
 #' @param object an ipcr object.
 #' @param parameter a character vector with target model parameters that are to be inspected.
 #' @param method a character string indicating whether to show results iterated IPC regression (iterated) or standard IPC regression (standard).
-#' @... further arguments passed to and from methods.
+#' @param ... further arguments passed to and from methods.
 #' @return A single integer.
 #' @export predict.ipcr
 
