@@ -5,6 +5,8 @@
 #' @return Returns a matrix.
 #' @export
 
+bread <- sandwich::bread
+
 bread.lavaan <- function(x, ...) {
   solve(lavaan::lavInspect(x, what = "information.expected"))
 }

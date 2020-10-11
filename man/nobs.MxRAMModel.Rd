@@ -4,10 +4,12 @@
 \alias{nobs.MxRAMModel}
 \title{Extract the Number of Observations from a MxRAMModel Fit}
 \usage{
-\method{nobs}{MxRAMModel}(object, ...)
+nobs.MxRAMModel(object, ...)
 }
 \arguments{
 \item{object}{a fitted MXRAMModel-type model.}
+
+\item{...}{arguments passed to methods.}
 }
 \value{
 A single integer.

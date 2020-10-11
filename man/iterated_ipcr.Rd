@@ -8,6 +8,8 @@ iterated_ipcr(x, ...)
 }
 \arguments{
 \item{x}{a fitted model object.}
+
+\item{...}{arguments passed to methods.}
 }
 \value{
 Returns a list.

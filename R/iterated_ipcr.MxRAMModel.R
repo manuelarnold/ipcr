@@ -5,10 +5,13 @@
 #' @return Returns a data frame.
 #' @export
 
-iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, ...) {
+iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, max_it, linear, ...) {
 
+  # Preparations --------
+  ## Model properties
   data_obs <- as.matrix(x$data$observed[, x$manifestVars, drop = FALSE])
   covariates_matrix <- as.matrix(covariates)
+  covariates_design_matrix <- cbind(1, covariates_matrix)
   n <- x$data$numObs
   p <- length(x$manifestVars)
   p_unf = nrow(x$A$values)
@@ -16,11 +19,11 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
   p_star_means = p * (p + 3) / 2
   ms <- any(x$M$free)
   param_estimates<- x$output$estimate
-  param_names <- IPC$info$parameters <- names(param_estimates)
+  param_names <- names(param_estimates)
   q <- length(param_estimates)
   exp_cov <- OpenMx::mxGetExpected(model = x, component = "covariance")
   exp_cov_inv <- solve(exp_cov)
-  if(ms) {exp_mean <-  OpenMx::mxGetExpected(model = x, component = "means")}
+  if(ms) {exp_mean <- OpenMx::mxGetExpected(model = x, component = "means")}
   k <- NCOL(covariates)
   Ident <- diag(x = 1, nrow = p_unf)
   Dup <- lavaan::lav_matrix_duplication(n = p)
@@ -30,7 +33,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
   indices_p_star_p_means <- (p_star + 1):p_star_means
 
 
-  # RAM matrices
+  ## RAM matrices
   F_RAM <- x$F$values
   A <- x$A$values
   S <- x$S$values
@@ -40,10 +43,10 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
   E <- B %*% S %*% t(B)
 
 
-  # Jacobian matrix
+  ## Jacobian matrix
   if (linear) { # Analytic Jacobian matrix
 
-    # Derivative Matrices
+    ### Derivative Matrices
     Zero <- matrix(0, nrow = p_unf, ncol = p_unf)
     A_deriv <- lapply(indices_param, function(x) {Zero})
     S_deriv <- A_deriv
@@ -62,7 +65,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
       m_deriv[[i]][which(x$M$labels == param_names[i])] <- 1
     }
 
-    # Analytic Jacobian
+    ## Analytic Jacobian
     jac <- matrix(0, nrow = p_star_means, ncol = q)
 
     for (i in indices_param) {
@@ -84,7 +87,9 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
   if (!ms) {jac <- jac[indices_p_star, , drop = FALSE]}
 
 
-  # Individual deviations from the sample moments
+
+  # Initial IPC regression --------
+  ## Individual deviations from the sample moments
   data_obs_c <- scale(x = data_obs, center = TRUE, scale = FALSE)
   mc <- matrix(data = apply(X = data_obs_c, MARGIN = 1,
                             FUN = function (x) {lavaan::lav_matrix_vech(x %*% t(x))}),
@@ -99,8 +104,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
     md <- cbind(md, mean_dev)
   }
 
-
-  # Weight matrix V
+  ## Weight matrix V
   V <- 0.5 * t(Dup) %*% kronecker(X = exp_cov_inv, Y = exp_cov_inv) %*% Dup
   if (ms) {
     V_m_cov <- matrix(data = 0, nrow = p_star_means, ncol = p_star_means)
@@ -109,44 +113,35 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
     V <- V_m_cov
   }
 
-
-  # Initial IPCs
+  ## Initial IPCs
   W <- solve(t(jac) %*% V %*% jac) %*% t(jac) %*% V
   IPCs <- matrix(data = rep(x = param_estimates, times = n),
                  byrow = TRUE, nrow = n, ncol = q) +
     md %*% t(W)
   IPCs <- as.data.frame(IPCs)
   colnames(IPCs) <- param_names
-  IPC$IPCs <- IPCs
 
-
-  # Initial IPC regression
+  ## Initial IPC regression
   ipcr_data <- cbind(IPCs, covariates)
   param_names_ipcr <- paste0("IPCs_", gsub("\\(|\\)", "", param_names))
   IV <- paste(colnames(covariates), collapse = " + ")
   colnames(ipcr_data)[seq_len(q)] <- param_names_ipcr
-  ipcr_list <- list()
-  for (j in indices_param) {
-    ipcr_list[[j]] <- do.call(what = "lm",
-                              args = list(formula = paste(param_names_ipcr[j], "~", IV),
-                                          data = as.name("ipcr_data")))
-  }
+  ipcr_list <- lapply(param_names_ipcr, FUN = function(x) {
+    do.call(what = "lm",
+            args = list(formula = paste(x, "~", IV), data = as.name("ipcr_data")))
+  })
   names(ipcr_list) <- param_names
-  IPC$regression <- ipcr_list
 
 
-  #### Iterated IPCR ####
-  IPC$info$conv <- conv
 
-
-  # Storing objects for the updating procedure
+  # Start iterated IPC regression --------
+  ## Storing objects for the updating procedure
   it_est <- matrix(sapply(X = ipcr_list, FUN = function(x) {coef(x)}),
                    nrow = 1, ncol = q * (k + 1))
   it_se <- matrix(sapply(X = ipcr_list, FUN = function(x) {sqrt(diag(vcov(x)))}),
                   nrow = 1, ncol = q * (k + 1))
 
-  # Center moment deviations at the covariate
-  ### CHECK THIS!!! WHY??? ###
+  ## Center moment deviations at the covariate
   center_reg_list <- apply(X = data_obs, MARGIN = 2, FUN = function(y) {
     lm(y ~ covariates_matrix)})
   data_centered <- data_obs -
@@ -158,18 +153,39 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
     cent_md <- cbind(cent_md, data_obs)
   }
 
+  ## Calculate model fit
+  if (iteration_info) {
+    log_lik_individual <- rep(NA, times = n)
+    for (i in indices_n) {
+      param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
+      x <- OpenMx::omxSetParameters(model = x, labels = param_names,
+                                    values = param_estimates)
+      x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
+      data_individual <- t(data_obs[i, , drop = FALSE])
+      sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
+      sigma_inv_individual <- solve(sigma_individual)
+      if (ms) {
+        mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
+        log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
+          (data_individual - mu_individual) + log(det(sigma_individual))
+      }  else {
+        log_lik_individual[i] <- t(data_individual) %*% sigma_inv_individual %*%
+          data_individual + log(det(sigma_individual))
+      }
+    }
+    log_lik <- -0.5 * sum(log_lik_individual) + n * p * log(2 * pi)
+  }
 
-  # Groups of observations with same covariate values in the covariate
+  ## Groups of observations with same covariate values in the covariate
   group <- transform(covariates, group_ID = as.numeric(interaction(covariates, drop = TRUE)))$group_ID
 
-
-  # Assign SEM parameters to the corresponding RAM matrices
+  ## Assign SEM parameters to the corresponding RAM matrices
   RAM_params <- rep(NA, times = q)
   RAM_params[which(param_names %in% x$A$labels)] <- "A"
   RAM_params[which(param_names %in% x$S$labels)] <- "S"
   RAM_params[which(param_names %in% x$M$labels)] <- "M"
 
-  # Get coordinates of the parameters in the corresponding RAM matrices
+  ## Get coordinates of the parameters in the corresponding RAM matrices
   RAM_coord <- list()
   for (i in indices_param) {
     if (RAM_params[i] == "A") {
@@ -184,7 +200,8 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
   }
 
 
-  # Start the iteration process
+
+  # Start the iteration process --------
   nr_iterations <- 0
   difference <- rep(x = conv + 1, times = NCOL(it_est))
   breakdown <- FALSE
@@ -193,7 +210,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
   unique_groups <- unique(group)
   cent_md_up <- cent_md
 
-
+  ## while loop
   while(nr_iterations < max_it & isFALSE(all(abs(difference) < conv)) &
         breakdown == FALSE) {
 
@@ -202,7 +219,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
     for (i in unique_groups) { # Start loop with index i
       ID_group <- which(group == i) # HERE, THIS IS WRONG
       n_group <- length(ID_group)
-      IPC_pred <- as.numeric(c(1, covariates[group == i, , drop = FALSE][1, ])) #### Check here
+      IPC_pred <- covariates_design_matrix[group == i, , drop = FALSE][1, ]
 
       # Update RAM matrices
       for (j in indices_param){
@@ -221,7 +238,6 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
           m[RAM_coord[[j]]] <- param_estimates[j]
         }
       } # end loop with index j: updating paramaters
-
 
       # Update sample covariance
       B <- solve(Ident - A)
@@ -304,11 +320,33 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
       }
 
 
-      # Store results
+      ## Store results
       it_est <- rbind(it_est, c(sapply(X = ipcr_list,
                                        FUN = function(x) {coef(x)})))
       it_se <- rbind(it_se, c(sapply(X = ipcr_list,
                                      FUN = function(x) {sqrt(diag(vcov(x)))})))
+
+      ## Calculate model fit
+      if (iteration_info) {
+        for (i in indices_n) {
+          param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
+          x <- OpenMx::omxSetParameters(model = x, labels = param_names,
+                                        values = param_estimates)
+          x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
+          data_individual <- t(data_obs[i, , drop = FALSE])
+          sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
+          sigma_inv_individual <- solve(sigma_individual)
+          if (ms) {
+            mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
+            log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
+              (data_individual - mu_individual) + log(det(sigma_individual))
+          }  else {
+            log_lik_individual[i] <- t(data_individual) %*% sigma_inv_individual %*%
+              data_individual + log(det(sigma_individual))
+          }
+        }
+        log_lik <- c(log_lik, -0.5 * sum(log_lik_individual) + n * p * log(2 * pi))
+      }
 
       # Covergence criteria
       difference <- it_est[nrow(it_est), ] -
@@ -319,25 +357,32 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, covariates, conv, max_it, linear, .
     }
   }
 
-  # Error reports
+
+
+  # Catch errors --------
   if (breakdown == TRUE) {
     cat("The iterated IPC regression aborted prematurely.")
-    IPC$info$iterated <- "Iterated IPC regression aborted prematurely."
+    IPC$info$iterated_status <- "Iterated IPC regression aborted prematurely."
   }
 
   if(breakdown == FALSE & nr_iterations == max_it &
      isFALSE(all(abs(difference) <= conv))) {
     cat(paste("The iterated IPC regression algorithm did not converge after", max_it, "iterations. Consider to increase the maximum number of iterations."))
-    IPC$info$iterated <- paste("Iterated IPC regression reached the maximum number of", max_it, "iterations without converging.")
+    IPC$info$iterated_status <- paste("Iterated IPC regression reached the maximum number of", max_it, "iterations without converging.")
   }
 
   if(breakdown == FALSE & nr_iterations < max_it &
      isFALSE(all(abs(difference) > conv))) {
     cat("Iterated IPC regression converged.")
-    IPC$info$iterate <- paste("Iterated IPC regression converged succesfully after", nr_iterations, "iterations.")
-    IPC$iterated_IPCs <- as.data.frame(updated_IPCs)
-    IPC$iterated_regression <- ipcr_list
+    IPC$info$iterated_status <- paste("Iterated IPC regression converged succesfully after", nr_iterations, "iterations.")
+    IPC$IPCs <- as.data.frame(updated_IPCs)
+    IPC$regression_list <- ipcr_list
   }
+
+
+
+  # Prepare output --------
+  if(iteration_info) {IPC$iteration_matrix <- cbind(log_lik, it_est)}
 
   IPC
 

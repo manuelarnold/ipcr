@@ -5,7 +5,7 @@
 #' @examples
 #' # Plot the correlation between covariates and initial IPCs.
 #' plot(x = IPC_reg)
-#' @export plot.ipcr
+#' @export
 
 plot.ipcr <- function(x, parameter = NULL, method = "iterated", ...) {
 

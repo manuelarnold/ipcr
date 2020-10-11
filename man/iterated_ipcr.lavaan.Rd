@@ -4,10 +4,12 @@
 \alias{iterated_ipcr.lavaan}
 \title{Iterated Individual Parameter Contribution Regression}
 \usage{
-\method{iterated_ipcr}{lavaan}(x, IPC, covariates, conv, max_it, linear, ...)
+\method{iterated_ipcr}{lavaan}(x, IPC, iteration_info, covariates, conv, max_it, linear, ...)
 }
 \arguments{
 \item{x}{a fitted model object}
+
+\item{...}{arguments passed to methods.}
 }
 \value{
 Returns a list.

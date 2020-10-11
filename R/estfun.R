@@ -5,6 +5,8 @@
 #' @return a n x q matrix corresponding to n observations and q parameters.
 #' @export
 
+estfun <- sandwich::estfun
+
 estfun.MxRAMModel <- function(x, ...) {
 
   # Model information
