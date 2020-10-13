@@ -1,10 +1,3 @@
-#' @title Extract Empirical Estimating Functions
-#' @description A function for extracting the empirical estimating functions of a fitted MxRAMModel-type model. This is the derivative of the objective function with respect to the parameter vector, evaluated at the observed (case-wise) data. In other words, this function returns the case-wise scores, evaluated at the fitted model parameters.
-#' @param x a fitted MxRAMModel-type model.
-#' ... further arguments passed to or from other methods.
-#' @return a n x q matrix corresponding to n observations and q parameters.
-#' @export
-
 estfun.MxRAMModel <- function(x, ...) {
 
   # Model information

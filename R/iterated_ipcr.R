@@ -1,10 +1,3 @@
-#' @title Iterated Individual Parameter Contribution Regression
-#' @description Generic function for computing iterated individual parameter contribution regression.
-#' @param x a fitted model object.
-#' @param ... arguments passed to methods.
-#' @return Returns a list.
-#' @export
-
 iterated_ipcr <- function(x, ...) {
   UseMethod("iterated_ipcr")
 }

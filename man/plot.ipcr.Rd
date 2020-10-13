@@ -2,19 +2,20 @@
 % Please edit documentation in R/plot.ipcr.R
 \name{plot.ipcr}
 \alias{plot.ipcr}
-\title{Plot Correlation between Covariates and IPCs}
+\title{Plot Correlations between Covariates and IPCs}
 \usage{
-\method{plot}{ipcr}(x, parameter = NULL, method = "iterated", ...)
+\method{plot}{ipcr}(x, ...)
 }
 \arguments{
 \item{x}{an ipcr object.}
 
-\item{method}{character string indicating whether the relationship between covariates and initial IPCs (method = “initial”, default option) or the iterated IPCs (method = “iterated”) is drawn.}
+\item{...}{other arguments.}
 }
 \description{
-This functions plots a heat map that visualizes the correlation between covariates and IPCs.
+This functions plots a heat map that visualizes the correlation between
+covariates and IPCs.
 }
-\examples{
-# Plot the correlation between covariates and initial IPCs.
-plot(x = IPC_reg)
+\details{
+This function is a wrapper for \code{\link[ggplot2]{ggplot}}. Currently,
+arguments passed to \code{ggplot} cannot be changed.
 }

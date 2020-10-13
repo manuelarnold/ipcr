@@ -1,8 +1,8 @@
 #' @export
 
-confint.ipcr <- function(object, parm = NULL, level = 0.95, parameter = NULL, ...) {
+confint.ipcr <- function(object, parm, level = 0.95, parameter = NULL, ...) {
 
-  if (is.null(parm)) {
+  if (missing(parm)) {
     cov_names <- c("(Intercept)", object$info$covariates)
   } else {
     cov_names <- parm

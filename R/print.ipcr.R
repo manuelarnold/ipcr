@@ -1,5 +1,5 @@
 #' @export
 
-print.ipcr <- function(x) {
+print.ipcr <- function(x, ...) {
   writeLines(x$output$info)
 }

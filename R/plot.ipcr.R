@@ -1,43 +1,53 @@
-#' @title Plot Correlation between Covariates and IPCs
-#' @description This functions plots a heat map that visualizes the correlation between covariates and IPCs.
+#' @title Plot Correlations between Covariates and IPCs
+#' @description This functions plots a heat map that visualizes the correlation between
+#' covariates and IPCs.
 #' @param x an ipcr object.
-#' @param method character string indicating whether the relationship between covariates and initial IPCs (method = “initial”, default option) or the iterated IPCs (method = “iterated”) is drawn.
-#' @examples
-#' # Plot the correlation between covariates and initial IPCs.
-#' plot(x = IPC_reg)
+#' @param ... other arguments.
+#' @details This function is a wrapper for \code{\link[ggplot2]{ggplot}}. Currently,
+#' arguments passed to \code{ggplot} cannot be changed.
 #' @export
 
-plot.ipcr <- function(x, parameter = NULL, method = "iterated", ...) {
+plot.ipcr <- function(x, ...) {
 
-  # Check arguments
-  if (method != "standard" & method != "iterated") {
-    stop("'method' must be either 'initial' or 'iterated'")
+  # check for covariates
+  if (x$info$covariates[1] == "no covariates found") {
+    stop("no covariates found")
   }
 
-  if (method == "iterated" & is.null(x$iterated_regression)) {method <- "standard"}
-
-  # Get covariates
-
-  # Compute correlation matrix
-  COR <- cor(x = x$IPCs, y = x$regression[[1]]$model[, 2:NCOL(x$regression[[1]])])
-
-  # Transform data into longformatio
-  longData <- melt(COR)
-
-  # Get names
-  if (method == "standard") {
-    ipc_name <- "Standard IPCs"
-  }
-  if (method == "iterated") {
-    ipc_name <- "Iterated IPCs"
+  # Re-code characters and factors into dummy variables
+  covariates <- x$regression_list[[1]]$model[, -1]
+  if (any(unlist(lapply(covariates, function(x) {is.character(x) | is.factor(x)})))) {
+    covariates_strings <- Filter(function(x) {is.character(x) | is.factor(x)}, covariates)
+    string_formula <- paste(colnames(covariates_strings), collapse = "+")
+    dummies <- stats::model.matrix(stats::formula(paste("~", string_formula)), data = covariates_strings)[, -1]
+    covariates <- covariates[, !unlist(lapply(covariates, function(x) {is.character(x) | is.factor(x)}))]
+    covariates <- cbind(covariates, dummies)
   }
 
-  ggplot(data = longData, aes(Var2, Var1, fill = value)) +
-    geom_tile(color = "white") +
-    scale_fill_gradient2(low = "blue", high = "red", mid = "white",  midpoint = 0,
-                         limit = c(-1, 1), space = "Lab", name = "Corr.") +
-    labs(x = "Covariates", y = "Parameters", title = ipc_name) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1)) +
-    coord_fixed()
+  # Correlation matrix
+  COR <- stats::cor(x = x$IPCs, y = covariates)
+
+  # Transform data into long format
+  p <- nrow(COR)
+  q <- ncol(COR)
+
+
+  long_data <- data.frame(parameter = rep(x$info$parameters, times = q),
+                          covariate = rep(x$info$covariates, each = p),
+                          value = c(COR))
+
+  # Heatmap
+  ggplot2::ggplot(data = long_data,
+                  ggplot2::aes(x = long_data[, 1],
+                               y = long_data[, 2],
+                               fill = long_data[, 3])) +
+    ggplot2::geom_tile(color = "white") +
+    ggplot2::scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                                  midpoint = 0, limit = c(-1, 1), space = "Lab",
+                                  name = "Corr.") +
+    ggplot2::labs(x = "Covariates", y = "Parameters") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, vjust = 1, size = 12,
+                                                       hjust = 1)) +
+    ggplot2::coord_fixed()
 }

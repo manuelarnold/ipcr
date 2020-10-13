@@ -2,7 +2,7 @@ Package: ipcr
 Type: Package
 Title: Individual Parameter Contribution Regression
 Version: 0.2.0
-Author: person("Manuel", "Arnold", email = "arnoldmz@hu-berlin.de", role = c("aut", "cre"))
+Authors@R: person("Manuel", "Arnold", email = "arnoldmz@hu-berlin.de", role = c("aut", "cre"))
 Maintainer: Manuel Arnold <arnoldmz@hu-berlin.de>
 Description: Identify and estimate parameter heterogeneity in structural equation models
     and other parametric models. This package is still under development. Please report
@@ -11,11 +11,5 @@ Depends: R (>= 3.1.0)
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-Imports:
-    ggplot2,
-    lavaan,
-    lmtest,
-    OpenMx,
-    sandwich,
+Imports: ggplot2, glmnet, lavaan, lmtest, OpenMx, sandwich
 RoxygenNote: 7.1.1
-Roxygen: list(markdown = TRUE)

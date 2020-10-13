@@ -1,12 +1,3 @@
-#' @title Check the specified arguments of ipcr
-#' @description Internal function that checks if the arguments specified in the ipcr function are valid.
-#' @param fit a fitted model.
-#' @param iterated a logical value.
-#' @param conv an integer used as stopping criterion for iterated IPC regression.
-#' @param linear a logical value.
-#' @param max_it the maximum number of iterations for iterated IPC regressions.
-#' @export
-
 check_ipcr_arguments <- function(fit, iterated, conv, max_it, linear,
                                  model_data) {
 
@@ -38,7 +29,7 @@ check_ipcr_arguments <- function(fit, iterated, conv, max_it, linear,
   }
 
   # Check if the model data is complete
-  if (!all(complete.cases(model_data))) {
+  if (!all(stats::complete.cases(model_data))) {
     stop("The data used to estimate the structural equation model muss be
          complete. IPCs cannot be computed.")
   }

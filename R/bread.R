@@ -1,12 +1,3 @@
-#' @title Bread Matrix of the Sandwich Matrix
-#' @description These functions extract an estimator for the bread of sandwiches.
-#' @param x a fitted model object.
-#' @param ... arguments passed to methods.
-#' @return Returns a matrix.
-#' @export
-
-bread <- sandwich::bread
-
 bread.lavaan <- function(x, ...) {
   solve(lavaan::lavInspect(x, what = "information.expected"))
 }

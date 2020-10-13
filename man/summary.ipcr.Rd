@@ -9,15 +9,15 @@
 \arguments{
 \item{object}{an ipcr object.}
 
-\item{regularization}{a logical value. Wheter to show results for regularized IPC
+\item{regularization}{a logical value; whether to show results for regularized IPC
 regression (if computed) or non-regularized results.}
 
 \item{digits}{integer indicating the number of decimal places to be used.}
 
-\item{...}{... further arguments passed to and from methods.}
-
-\item{vebose}{a logical value; if TRUE ipcr settings, non-regularized, and regularized
+\item{verbose}{a logical value; if TRUE ipcr settings, non-regularized, and regularized
 results are shown.}
+
+\item{...}{further arguments passed to and from methods.}
 }
 \description{
 This functions returns the coefficients of the individual parameter

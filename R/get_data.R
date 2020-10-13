@@ -1,16 +1,9 @@
-#' @title Get the data used to fit the model
-#' @description This function gets the data used to fit the model and returns it as data frame.
-#' @param x a fitted model object
-#' @param ... arguments passed to methods.
-#' @return Returns a data frame.
-#' @export
-
 get_data <- function(x, ...) {
   UseMethod("get_data")
 }
 
 get_data.glm <- function(x, ...) {
-  x$data[, all.vars(formula(x)), drop = FALSE]
+  x$data[, all.vars(stats::formula(x)), drop = FALSE]
 }
 
 get_data.lavaan <- function(x, ...) {

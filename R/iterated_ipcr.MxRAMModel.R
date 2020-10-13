@@ -1,11 +1,5 @@
-#' @title Iterated Individual Parameter Contribution Regression
-#' @description This function performs iterated individual parameter contribution regression for fitted MxRAM-type models.
-#' @param x a fitted model object
-#' @param ... arguments passed to methods.
-#' @return Returns a data frame.
-#' @export
-
-iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, max_it, linear, ...) {
+iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, max_it,
+                                     linear_MxModel, ...) {
 
   # Preparations --------
   ## Model properties
@@ -44,7 +38,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, m
 
 
   ## Jacobian matrix
-  if (linear) { # Analytic Jacobian matrix
+  if (linear_MxModel) { # Analytic Jacobian matrix
 
     ### Derivative Matrices
     Zero <- matrix(0, nrow = p_unf, ncol = p_unf)
@@ -143,7 +137,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, m
 
   ## Center moment deviations at the covariate
   center_reg_list <- apply(X = data_obs, MARGIN = 2, FUN = function(y) {
-    lm(y ~ covariates_matrix)})
+    stats::lm(y ~ covariates_matrix)})
   data_centered <- data_obs -
     sapply(X = center_reg_list, FUN = function(x) {x$fitted.values})
   cent_md <- matrix(data = apply(X = data_centered, MARGIN = 1,
@@ -248,7 +242,7 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, m
 
 
       # Update Jacobian matrix
-      if (linear) { # Analytic Jacobian matrix
+      if (linear_MxModel) { # Analytic Jacobian matrix
 
         for (j in indices_param) {
           symm <- FB %*% A_deriv[[j]] %*% E %*% t(F_RAM)
