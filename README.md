@@ -1,8 +1,10 @@
 # Introduction
 
-ipcr is an R package that makes it easy for researchers to study heterogeneity in the parameter estimates of a structural equation model (SEM)  with [individual parameter contribution (IPC) regression](https://psyarxiv.com/sbyux/). IPC regression allows regressing SEM parameter estimates on additional covariates.
+ipcr is an R package for predicting and explaining individual differences in model parameters with [individual parameter contribution (IPC) regression](https://doi.org/10.1080/10705511.2019.1667240). IPC regression allows regressing model parameters on covariates. IPC regression can be used as an alternative to other methods such as random-effects models or multi-group models.
 
-ipcr requires that the SEM is fitted with R package [OpenMx](https://openmx.ssri.psu.edu/). As of now, only single-group RAM-type OpenMx models are supported. Moreover, the data used to estimate the SEM and the additional covariates need to be complete without any missing values.
+ipcr was mainly written for structural equation models (SEMs) estimated with the [lavaan](https://lavaan.ugent.be/) or [OpenMx](https://openmx.ssri.psu.edu/) package. However, icpr can also be used to investigate models fitted with R's lm and glm function.
+
+As of now, the data used to estimate the model and covariates need to be complete without any missing values.
 
 This package is still under development. Please report any bugs.
 
@@ -16,34 +18,37 @@ devtools::install_github("manuelarnold/ipcr")
 
 # Example
 ``` r
-# Load the ipcr package
-library(ipcr)
+# Structural equation model example using the lavaan package
 
-# Specify an OpenMx model
-m <- mxModel(model = "CFA",
-             manifestVars = c("x1", "x2", "x3"),
-             latentVars = "f",
-             type = "RAM",
-             mxData(observed = ipcr_data, type = "raw"),
-             mxPath(from = "f", to = c("x1", "x2", "x3"), arrows = 1,
-                    free = c(FALSE, TRUE, TRUE), values = 1,
-                    labels = c("l1", "l2", "l3")),
-             mxPath(from = "f", arrows = 2, free = TRUE, values = 0.75,
-                    labels = "var_f"),
-             mxPath(from = c("x1", "x2", "x3"), arrows = 2, free = TRUE,
-                    values = 0.25, labels = c("e1", "e2", "e3")),
-             mxPath(from = "one", to = c("x1", "x2", "x3"), arrows = 1,
-                    free = FALSE, values = 0))
+## Load Holzinger and Swineford (1939) data provided by the lavaan package
+HS_data <- lavaan::HolzingerSwineford1939
 
-# Fit the model
-fit <- mxTryHard(model = m)
+## Remove observations with missing values
+HS_data <- HS_data[stats::complete.cases(HS_data), ]
 
-# Investigate the parameter estimates with IPC regression
-IPC_reg <- ipcr(fit = fit, covariates = ipcr_covariates, iterated = TRUE)
+## lavaan model syntac for a single group model
+m <- 'visual =~ x1 + x2 + x3
+      textual =~ x4 + x5 + x6
+      speed =~ x7 + x8 + x9'
 
-# Get an overview about parameter differences
-plot(IPC_reg)
+## Fit the model
+fit <- lavaan::cfa(model = m, data = HS_data)
 
-# Show IPC regression output
-summary(object = IPC_reg)
+## Prepare a data.frame with covariates
+covariates <- HS_data[, c("sex", "ageyr", "agemo", "school", "grade")]
+
+## Regress parameters on covariates with the ipcr function
+res <- ipcr(fit = fit, covariates = covariates)
+
+## Plot heatmap with the correlation between parameters and predictors
+plot(res)
+
+## Show results (standard IPC regression)
+summary(res)
+
+## IPC regression with LASSO regularization
+res_reg <- ipcr(fit = fit, covariates = covariates, regularization = TRUE)
+
+## Show results (regularized standard IPC regression)
+summary(res_reg)
 ```
