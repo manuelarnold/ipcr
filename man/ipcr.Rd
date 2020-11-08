@@ -113,7 +113,7 @@ fitted with \pkg{lavaan} or \pkg{OpenMx} but also for models estimated with
 \details{
 IPCs are rough approximations of individual-specific parameter values. The IPCs of
 individual \eqn{i} are defined as
-\deqn{IPC_i=\theta+A(\theta)^(-1)S(\theta,y_i),}
+\deqn{IPC_i=\theta+A(\theta)^{-1}S(\theta,y_i),}
 where \eqn{\theta} are the estimated model parameters, \eqn{S(\theta,y_i)} is the
 estimating function (e.g, the first derivative of the log-likelihood), and \eqn{A(\theta)}
 is the expectation of the negative derivative of the estimating function (often called
