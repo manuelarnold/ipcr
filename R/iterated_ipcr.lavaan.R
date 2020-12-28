@@ -49,8 +49,9 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
   ## Initial IPC regression
   ipcr_data <- cbind(IPCs, covariates_matrix)
   param_names_ipcr <- paste0("IPCs_", gsub("\\(|\\)", "", param_names))
-  param_names_ipcr <- gsub(pattern = "~~",replacement = ".WITH.", x = param_names_ipcr)
-  param_names_ipcr <- gsub(pattern = "~",replacement = ".ON.", x = param_names_ipcr)
+  param_names_ipcr <- gsub(pattern = "=~", replacement = ".BY.", x = param_names_ipcr)
+  param_names_ipcr <- gsub(pattern = "~~", replacement = ".WITH.", x = param_names_ipcr)
+  param_names_ipcr <- gsub(pattern = "~", replacement = ".ON.", x = param_names_ipcr)
   IV <- paste(colnames(covariates), collapse = " + ")
   colnames(ipcr_data)[seq_len(q)] <- param_names_ipcr
   ipcr_list <- lapply(param_names_ipcr, FUN = function(x) {
