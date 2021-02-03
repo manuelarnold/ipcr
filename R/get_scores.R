@@ -23,5 +23,5 @@
 #' @export
 
 get_scores <- function(x, ...) {
-  data.frame(sandwich::estfun(x, ...))
+  data.frame(estfun_ipcr(x, ...))
 }

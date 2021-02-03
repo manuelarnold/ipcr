@@ -40,7 +40,7 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
   # Initial IPC regression --------
   ## Calculate initial IPCs
   scores <- lavaan::estfun.lavaan(x)
-  bread_matrix <- bread.lavaan(x)
+  bread_matrix <- bread_ipcr.lavaan(x)
   IPCs <- data.frame(matrix(param_estimates, nrow = n, ncol = q, byrow = TRUE) +
                        scores %*% t(bread_matrix))
   colnames(IPCs) <- param_names

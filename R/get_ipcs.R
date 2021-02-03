@@ -18,9 +18,9 @@
 #' @export
 
 get_ipcs <- function(x) {
-  param_estimates <- coef(x)
-  scores <- sandwich::estfun(x)
-  bread_matrix <- sandwich::bread(x)
+  param_estimates <- coef_ipcr(x)
+  scores <- estfun_ipcr(x)
+  bread_matrix <- bread_ipcr(x)
   IPCs <- data.frame(matrix(param_estimates, nrow = nobs(x),
                             ncol = length(param_estimates), byrow = TRUE) +
                        scores %*% t(bread_matrix))

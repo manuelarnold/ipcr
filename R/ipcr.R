@@ -141,7 +141,7 @@ ipcr <- function(fit, covariates = NULL, iterate = FALSE, iteration_info = FALSE
   # Checks --------
 
   ## Get model data
-  model_data <- get_data(fit)
+  #model_data <- get_data(fit)
 
   # This needs to be checked and enabled
   #check_ipcr_arguments(fit = fit, iterate = iterate, conv = conv,
@@ -174,7 +174,7 @@ ipcr <- function(fit, covariates = NULL, iterate = FALSE, iteration_info = FALSE
   # Storing object for output --------
 
   ## Model parameters
-  param_estimates <- coef(fit)
+  param_estimates <- coef_ipcr(fit)
   q <- length(param_estimates)
   param_names <- names(param_estimates)
 
@@ -219,8 +219,8 @@ ipcr <- function(fit, covariates = NULL, iterate = FALSE, iteration_info = FALSE
     q <- length(param_estimates)
 
     ## Compute score
-    scores <- sandwich::estfun(fit)
-    bread_matrix <- sandwich::bread(fit)
+    scores <- estfun_ipcr(fit)
+    bread_matrix <- bread_ipcr(fit)
     IPCs <- data.frame(matrix(param_estimates, nrow = n, ncol = q, byrow = TRUE) +
                          scores %*% t(bread_matrix))
     colnames(IPCs) <- param_names
