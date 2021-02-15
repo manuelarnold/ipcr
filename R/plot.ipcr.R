@@ -38,8 +38,8 @@ plot.ipcr <- function(x, ...) {
 
   # Heatmap
   ggplot2::ggplot(data = long_data,
-                  ggplot2::aes(x = long_data[, 1],
-                               y = long_data[, 2],
+                  ggplot2::aes(x = long_data[, 2],
+                               y = long_data[, 1],
                                fill = long_data[, 3])) +
     ggplot2::geom_tile(color = "white") +
     ggplot2::scale_fill_gradient2(low = "blue", high = "red", mid = "white",

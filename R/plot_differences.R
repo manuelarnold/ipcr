@@ -55,33 +55,35 @@ plot_differences <- function(x, parameter = NULL, covariate = NULL,
   z <- stats::qnorm(p = 0.5 + confidence_level / 2)
 
   if (is.null(parameter)) {parameter <- x$info$parameters}
-  if (is.null(covariate)) {covariate <- x$info$covariates}
+  if (is.null(covariate)) {
+    covariate_id <- seq_along(x$info$covariates)
+  } else {
+    covariate_id <- which(x$info$covariate %in% covariate)
+  }
 
   plots <- list()
   counter <- 1
 
   for (q in parameter) {
-    for (k in covariate) {
+    for (k in covariate_id) {
 
       # model parameter estimates
       m <- x$regression_list[[q]]
       intercept <- stats::coef(m)[1]
-      slope <- stats::coef(m)[k]
-      VCOV <- stats::vcov(m)[c("(Intercept)", k), c("(Intercept)", k)]
+      slope <- stats::coef(m)[k + 1] # position 1 is the intercept
+      VCOV <- stats::vcov(m)[c(1, k + 1), c(1, k + 1)]
       var_intercept <- VCOV[1, 1]
-      cov_intercept_slope <- VCOV[k, 1]
-      var_slope <- VCOV[k, k]
+      cov_intercept_slope <- VCOV[2, 1]
+      var_slope <- VCOV[2, 2]
 
       # plotting data
-      df <- data.frame(k = x$regression_list[[1]]$model[, k],
+      df <- data.frame(k = x$regression_list[[1]]$model[, k + 1],
                        IPCs = x$IPCs[, q])
 
       # for dummy variables
       if (length(unique(df[, "k"])) == 2) {
 
-
-
-        plots[[counter]]<- ggplot2::ggplot(data = df,
+        plots[[counter]] <- ggplot2::ggplot(data = df,
                                            mapping = ggplot2::aes(x = factor(k),
                                                                   y = IPCs,
                                                                   col = factor(k))) +
@@ -96,7 +98,7 @@ plot_differences <- function(x, parameter = NULL, covariate = NULL,
                                      ymin = intercept - z*sqrt(var_intercept + 2*cov_intercept_slope + var_slope),
                                      ymax = intercept + z*sqrt(var_intercept + 2*cov_intercept_slope + var_slope)),
                                  width = 0.25, col = "#00BFC4") +
-          ggplot2::xlab(k) +
+          ggplot2::xlab(x$info$covariates[k]) +
           ggplot2::ylab(q) +
           ggplot2::theme_bw() +
           ggplot2::theme(legend.position = "none")
@@ -123,13 +125,13 @@ plot_differences <- function(x, parameter = NULL, covariate = NULL,
           ggplot2::geom_function(fun = regression_line, col = "#0072B2", size = 1.05) +
           ggplot2::geom_function(fun = upper_CI, col = "#0072B2", linetype="dashed") +
           ggplot2::geom_function(fun = lower_CI, col = "#0072B2", linetype="dashed") +
-          ggplot2::xlab(k) +
+          ggplot2::xlab(x$info$covariates[k]) +
           ggplot2::ylab(q) +
           ggplot2::theme_bw()
 
       }
 
-      names(plots)[counter] <- paste(q, "~", k)
+      names(plots)[counter] <- paste(q, "~", x$info$covariates[k])
 
       counter <- counter + 1
 
