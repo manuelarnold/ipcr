@@ -61,9 +61,7 @@ plot_differences <- function(x, parameter = NULL, covariate = NULL,
     covariate_id <- which(x$info$covariate %in% covariate)
   }
 
-  plots <- list()
-  counter <- 1
-
+  # loop through plots
   for (q in parameter) {
     for (k in covariate_id) {
 
@@ -83,25 +81,25 @@ plot_differences <- function(x, parameter = NULL, covariate = NULL,
       # for dummy variables
       if (length(unique(df[, "k"])) == 2) {
 
-        plots[[counter]] <- ggplot2::ggplot(data = df,
-                                           mapping = ggplot2::aes(x = factor(k),
-                                                                  y = IPCs,
-                                                                  col = factor(k))) +
-          ggplot2::geom_jitter() +
-          ggplot2::geom_point(ggplot2::aes(x = 1, y = intercept), col = "#F8766D", size = 5) +
-          ggplot2::geom_point(ggplot2::aes(x = 2, y = intercept + slope), col = "#00BFC4", size = 5) +
-          ggplot2::geom_errorbar(ggplot2::aes(x = 1,
-                                     ymin = intercept - z*sqrt(var_intercept),
-                                     ymax = intercept + z*sqrt(var_intercept)),
-                                 width = 0.25, col = "#F8766D") +
-          ggplot2::geom_errorbar(ggplot2::aes(x = 2,
-                                     ymin = intercept - z*sqrt(var_intercept + 2*cov_intercept_slope + var_slope),
-                                     ymax = intercept + z*sqrt(var_intercept + 2*cov_intercept_slope + var_slope)),
-                                 width = 0.25, col = "#00BFC4") +
-          ggplot2::xlab(x$info$covariates[k]) +
-          ggplot2::ylab(q) +
-          ggplot2::theme_bw() +
-          ggplot2::theme(legend.position = "none")
+        print(ggplot2::ggplot(data = df,
+                              mapping = ggplot2::aes(x = factor(k),
+                                                     y = IPCs,
+                                                     col = factor(k))) +
+                ggplot2::geom_jitter() +
+                ggplot2::geom_point(ggplot2::aes(x = 1, y = intercept), col = "#F8766D", size = 5) +
+                ggplot2::geom_point(ggplot2::aes(x = 2, y = intercept + slope), col = "#00BFC4", size = 5) +
+                ggplot2::geom_errorbar(ggplot2::aes(x = 1,
+                                                    ymin = intercept - z*sqrt(var_intercept),
+                                                    ymax = intercept + z*sqrt(var_intercept)),
+                                       width = 0.25, col = "#F8766D") +
+                ggplot2::geom_errorbar(ggplot2::aes(x = 2,
+                                                    ymin = intercept + slope - z*sqrt(var_intercept + 2*cov_intercept_slope + var_slope),
+                                                    ymax = intercept + slope + z*sqrt(var_intercept + 2*cov_intercept_slope + var_slope)),
+                                       width = 0.25, col = "#00BFC4") +
+                ggplot2::xlab(x$info$covariates[k]) +
+                ggplot2::ylab(q) +
+                ggplot2::theme_bw() +
+                ggplot2::theme(legend.position = "none"))
 
       } else { # for other variables (not dummys)
 
@@ -119,25 +117,16 @@ plot_differences <- function(x, parameter = NULL, covariate = NULL,
         }
 
         # plot
-        plots[[counter]] <- ggplot2::ggplot(data = df,
-                                            mapping = ggplot2::aes(x = k, y = IPCs)) +
-          ggplot2::geom_point() +
-          ggplot2::geom_function(fun = regression_line, col = "#0072B2", size = 1.05) +
-          ggplot2::geom_function(fun = upper_CI, col = "#0072B2", linetype="dashed") +
-          ggplot2::geom_function(fun = lower_CI, col = "#0072B2", linetype="dashed") +
-          ggplot2::xlab(x$info$covariates[k]) +
-          ggplot2::ylab(q) +
-          ggplot2::theme_bw()
-
+        print(ggplot2::ggplot(data = df,
+                              mapping = ggplot2::aes(x = k, y = IPCs)) +
+                ggplot2::geom_point() +
+                ggplot2::geom_function(fun = regression_line, col = "#0072B2", size = 1.05) +
+                ggplot2::geom_function(fun = upper_CI, col = "#0072B2", linetype="dashed") +
+                ggplot2::geom_function(fun = lower_CI, col = "#0072B2", linetype="dashed") +
+                ggplot2::xlab(x$info$covariates[k]) +
+                ggplot2::ylab(q) +
+                ggplot2::theme_bw())
       }
-
-      names(plots)[counter] <- paste(q, "~", x$info$covariates[k])
-
-      counter <- counter + 1
-
     }
   }
-
-  plots
-
 }
