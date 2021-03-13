@@ -2,12 +2,13 @@
 #' @description This functions plots a heat map that visualizes the correlation between
 #' covariates and IPCs.
 #' @param x an ipcr object.
+#' @param print_corr a logical value; if TRUE correlation coefficients are added on the heatmap.
 #' @param ... other arguments.
 #' @details This function is a wrapper for \code{\link[ggplot2]{ggplot}}. Currently,
 #' arguments passed to \code{ggplot} cannot be changed.
 #' @export
 
-plot.ipcr <- function(x, ...) {
+plot.ipcr <- function(x, print_corr = FALSE, ...) {
 
   # check for covariates
   if (x$info$covariates[1] == "no covariates found") {
@@ -37,10 +38,10 @@ plot.ipcr <- function(x, ...) {
                           value = c(COR))
 
   # Heatmap
-  ggplot2::ggplot(data = long_data,
-                  ggplot2::aes(x = long_data[, 2],
-                               y = long_data[, 1],
-                               fill = long_data[, 3])) +
+  res <- ggplot2::ggplot(data = long_data,
+                         ggplot2::aes(x = long_data[, 2],
+                                      y = long_data[, 1],
+                                      fill = long_data[, 3])) +
     ggplot2::geom_tile(color = "white") +
     ggplot2::scale_fill_gradient2(low = "blue", high = "red", mid = "white",
                                   midpoint = 0, limit = c(-1, 1), space = "Lab",
@@ -50,4 +51,13 @@ plot.ipcr <- function(x, ...) {
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, vjust = 1, size = 12,
                                                        hjust = 1)) +
     ggplot2::coord_fixed()
+
+  if (print_corr) {
+    res +
+      ggplot2::geom_text(ggplot2:: aes(x = long_data[, 2], y =  long_data[, 1],
+                                       label = round(long_data[, 3], digits = 2)),
+                         color = "black")
+  } else {
+    res
+  }
 }

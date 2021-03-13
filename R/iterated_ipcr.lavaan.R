@@ -10,7 +10,8 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
   p_star <- (p * (p + 1)) / 2
   p_star_means = p * (p + 3) / 2
   ms <- x@Model@meanstructure
-  param_estimates <- coef(x)
+  equality_constraints <- x@Model@eq.constraints
+  param_estimates <- coef_ipcr.lavaan(x)
   param_names <- names(param_estimates)
   q <- length(param_estimates)
   exp_cov <- x@Fit@Sigma.hat[[1]]
@@ -35,6 +36,17 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
   values <- rep(NA, times = NROW(ParTable))
   values[fixed_params] <- paste0(ParTable[fixed_params, "est"], "*")
 
+  ## Prepare stuff for equality constraints
+  if (equality_constraints) {
+    indices_eq_constraints <- ParTable$free
+    eq_rows <- ParTable[ParTable$op == "==", ]
+    for (i in seq_len(NROW(eq_rows))) {
+      indices_eq_constraints[ParTable$plabel %in% eq_rows$rhs[i]] <- ParTable$free[ParTable$plabel %in% eq_rows$lhs[i]]
+    }
+    indices_eq_constraints <- indices_eq_constraints[indices_eq_constraints != 0]
+    K <- ipcr_lav_constraints_R2K(x@Model)
+  }
+
 
 
   # Initial IPC regression --------
@@ -54,9 +66,9 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
   param_names_ipcr <- gsub(pattern = "~", replacement = ".ON.", x = param_names_ipcr)
   IV <- paste(colnames(covariates), collapse = " + ")
   colnames(ipcr_data)[seq_len(q)] <- param_names_ipcr
-  ipcr_list <- lapply(param_names_ipcr, FUN = function(x) {
+  ipcr_list <- lapply(param_names_ipcr, FUN = function(y) {
     do.call(what = "lm",
-            args = list(formula = paste(x, "~", IV), data = as.name("ipcr_data")))
+            args = list(formula = paste(y, "~", IV), data = as.name("ipcr_data")))
   })
   names(ipcr_list) <- param_names
 
@@ -64,16 +76,16 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
 
   # Start iterated IPC regression --------
   ## Storing objects for the updating procedure
-  it_est <- matrix(sapply(X = ipcr_list, FUN = function(x) {coef(x)}),
+  it_est <- matrix(sapply(X = ipcr_list, FUN = function(y) {coef(y)}),
                    nrow = 1, ncol = q * (k + 1))
-  it_se <- matrix(sapply(X = ipcr_list, FUN = function(x) {sqrt(diag(vcov(x)))}),
+  it_se <- matrix(sapply(X = ipcr_list, FUN = function(y) {sqrt(diag(vcov(y)))}),
                   nrow = 1, ncol = q * (k + 1))
 
   ## Calculate model fit
   if (iteration_info) {
     log_lik_individual <- rep(NA, times = n)
     for (i in indices_n) {
-      param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
+      param_estimates <- sapply(X = ipcr_list, FUN = function(y) {sum(coef(y) * covariates_design_matrix[i, ])})
       values[!fixed_params] <- paste0("start(", param_estimates, ")*")
       model_syntax <- paste0(ParTable$lhs, ParTable$op, values, ParTable$rhs, collapse = "\n")
       x <- lavaan::lavaan(model = model_syntax, data = data_obs, do.fit = FALSE)
@@ -96,9 +108,9 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
   center_reg_list <- apply(X = data_obs, MARGIN = 2, FUN = function(y) {
     stats::lm(y ~ covariates_matrix)})
   data_centered <- data_obs -
-    sapply(X = center_reg_list, FUN = function(x) {x$fitted.values})
+    sapply(X = center_reg_list, FUN = function(y) {y$fitted.values})
   cent_md <- matrix(data = apply(X = data_centered, MARGIN = 1,
-                                 FUN = function(x) {lavaan::lav_matrix_vech(x %*% t(x))}),
+                                 FUN = function(y) {lavaan::lav_matrix_vech(y %*% t(y))}),
                     nrow = n, ncol = p_star, byrow = TRUE)
   if (ms) {
     cent_md <- cbind(data_obs, cent_md)
@@ -127,17 +139,26 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
       IPC_pred <- covariates_design_matrix[group == i, , drop = FALSE][1, ]
 
       ### Update Parameters
-      param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * IPC_pred)})
+      param_estimates <- param_estimates_eq <- sapply(X = ipcr_list, FUN = function(y) {sum(coef(y) * IPC_pred)})
+
+      ### Add duplicates for equality constraints
+      if (equality_constraints) {
+        param_estimates_eq <- param_estimates[indices_eq_constraints]
+      }
 
       ### Update model synatx
-      values[!fixed_params] <- paste0("start(", param_estimates, ")*")
+      values[!fixed_params] <- paste0("start(", param_estimates_eq, ")*")
       model_syntax <- paste0(ParTable$lhs, ParTable$op, values, ParTable$rhs, collapse = "\n")
 
       ### Update lavaan model
       x <- lavaan::lavaan(model = model_syntax, data = data_obs, do.fit = FALSE)
 
       ### Updated Jacobian matrix
-      jac <- lavaan:::computeDelta(x@Model)[[1]]
+      jac <- ipcr_computeDelta(x@Model)[[1]]
+
+      if (equality_constraints) {
+        jac <- jac %*% K
+      }
 
       ### Updated weight matrix
       V <- lavaan::lavInspect(object = x, what = "wls.v")
@@ -174,22 +195,22 @@ iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_i
       ipcr_data <- cbind(updated_IPCs, covariates)
       colnames(ipcr_data)[indices_param] <- param_names_ipcr
       updated_IPCs <- as.data.frame(updated_IPCs)
-      ipcr_list <- lapply(param_names_ipcr, FUN = function(x) {
+      ipcr_list <- lapply(param_names_ipcr, FUN = function(y) {
         do.call(what = "lm",
-                args = list(formula = paste(x, "~", IV), data = as.name("ipcr_data")))
+                args = list(formula = paste(y, "~", IV), data = as.name("ipcr_data")))
       })
       names(ipcr_list) <- param_names
 
       ## Store results
       it_est <- rbind(it_est, c(sapply(X = ipcr_list,
-                                       FUN = function(x) {coef(x)})))
+                                       FUN = function(y) {coef(y)})))
       it_se <- rbind(it_se, c(sapply(X = ipcr_list,
-                                     FUN = function(x) {sqrt(diag(vcov(x)))})))
+                                     FUN = function(y) {sqrt(diag(vcov(y)))})))
 
       ## Calculate model fit
       if (iteration_info) {
         for (i in indices_n) {
-          param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
+          param_estimates <- sapply(X = ipcr_list, FUN = function(y) {sum(coef(y) * covariates_design_matrix[i, ])})
           values[!fixed_params] <- paste0("start(", param_estimates, ")*")
           model_syntax <- paste0(ParTable$lhs, ParTable$op, values, ParTable$rhs, collapse = "\n")
           x <- lavaan::lavaan(model = model_syntax, data = data_obs, do.fit = FALSE)

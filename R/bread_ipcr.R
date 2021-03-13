@@ -25,7 +25,13 @@ bread_ipcr.glmerMod <- function(x, ...) {
 }
 
 bread_ipcr.lavaan <- function(x, ...) {
-  solve(lavaan::lavInspect(x, what = "information.expected"))
+  if (x@Model@eq.constraints) {
+    K <- eval(parse(text = "lavaan:::lav_constraints_R2K(x@Model)"))
+    res <- solve(t(K) %*% lavaan::lavInspect(x, what = "information.expected") %*% K)
+  } else {
+    res <- solve(lavaan::lavInspect(x, what = "information.expected"))
+  }
+  res
 }
 
 bread_ipcr.MxRAMModel <- function(x, ...) {

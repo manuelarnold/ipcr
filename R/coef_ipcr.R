@@ -29,3 +29,12 @@ coef_ipcr.glmerMod <- function(x, ...) {
   res <- c(lme4::fixef(x), var_corr)
   res
 }
+
+coef_ipcr.lavaan <- function(x, ...) {
+  if (x@Model@eq.constraints) {
+    res <- lavaan::coef(x)[!duplicated(names(lavaan::coef(x)))]
+  } else {
+    res <- lavaan::coef(x)
+  }
+  res
+}

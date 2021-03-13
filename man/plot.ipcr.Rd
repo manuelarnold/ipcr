@@ -4,10 +4,12 @@
 \alias{plot.ipcr}
 \title{Plot Correlations between Covariates and IPCs}
 \usage{
-\method{plot}{ipcr}(x, ...)
+\method{plot}{ipcr}(x, print_corr = FALSE, ...)
 }
 \arguments{
 \item{x}{an ipcr object.}
+
+\item{print_corr}{a logical value; if TRUE correlation coefficients are added on the heatmap.}
 
 \item{...}{other arguments.}
 }

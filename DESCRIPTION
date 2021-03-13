@@ -11,5 +11,5 @@ Depends: R (>= 3.1.0)
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-Imports: ggplot2, glmnet, lavaan, lme4, lmtest, merDeriv, OpenMx, sandwich
+Imports: ggplot2, glmnet, lavaan, lme4, lmtest, merDeriv, methods, OpenMx, sandwich
 RoxygenNote: 7.1.1
