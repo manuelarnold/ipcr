@@ -198,175 +198,171 @@ iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, m
   # Start the iteration process --------
   nr_iterations <- 0
   difference <- rep(x = conv + 1, times = NCOL(it_est))
-  breakdown <- FALSE
   updated_IPCs <- matrix(NA, nrow = n, ncol = q)
   colnames(updated_IPCs) <- param_names
   unique_groups <- unique(group)
   cent_md_up <- cent_md
 
   ## while loop
-  while(nr_iterations < max_it & isFALSE(all(abs(difference) < conv)) &
-        breakdown == FALSE) {
+  while(nr_iterations < max_it & isFALSE(all(abs(difference) < conv))) {
 
-    ### Update IPCs ###
-    # Update the IPCs of individual or group i
-    for (i in unique_groups) { # Start loop with index i
-      ID_group <- which(group == i) # HERE, THIS IS WRONG
-      n_group <- length(ID_group)
-      IPC_pred <- covariates_design_matrix[group == i, , drop = FALSE][1, ]
+    ### Try to update the IPCs of individuals and/or groups
+    updated_IPCs <- try(expr = {
 
-      # Update RAM matrices
-      for (j in indices_param){
+      for (i in unique_groups) { # Start loop with index i
 
-        param_estimates[j] <- sum(coef(ipcr_list[[j]]) * IPC_pred)
+        ID_group <- which(group == i)
+        n_group <- length(ID_group)
+        IPC_pred <- covariates_design_matrix[group == i, , drop = FALSE][1, ]
 
-        if (RAM_params[j] == "A") {
-          A[RAM_coord[[j]]] <- param_estimates[j]
-        }
+        # Update RAM matrices
+        for (j in indices_param){
 
-        if (RAM_params[j] == "S") {
-          S[RAM_coord[[j]]] <- param_estimates[j]
-        }
+          param_estimates[j] <- sum(coef(ipcr_list[[j]]) * IPC_pred)
 
-        if (RAM_params[j] == "M") {
-          m[RAM_coord[[j]]] <- param_estimates[j]
-        }
-      } # end loop with index j: updating paramaters
-
-      # Update sample covariance
-      B <- solve(Ident - A)
-      FB <- F_RAM %*% B
-      E <- B %*% S %*% t(B)
-      exp_cov <- F_RAM %*% E %*% t(F_RAM)
-      exp_cov_inv <- solve(exp_cov)
-
-
-      # Update Jacobian matrix
-      if (linear_MxModel) { # Analytic Jacobian matrix
-
-        for (j in indices_param) {
-          symm <- FB %*% A_deriv[[j]] %*% E %*% t(F_RAM)
-          jac[indices_p_star, j] <- lavaan::lav_matrix_vech(symm + t(symm) + FB %*% S_deriv[[j]] %*% t(FB))
-        }
-
-        if (ms) {
-          for (j in indices_param) {
-            jac[indices_p_star_p_means, j] <- FB %*% A_deriv[[j]] %*% B %*% m +
-              FB %*% m_deriv[[j]]
+          if (RAM_params[j] == "A") {
+            A[RAM_coord[[j]]] <- param_estimates[j]
           }
-        }
+
+          if (RAM_params[j] == "S") {
+            S[RAM_coord[[j]]] <- param_estimates[j]
+          }
+
+          if (RAM_params[j] == "M") {
+            m[RAM_coord[[j]]] <- param_estimates[j]
+          }
+        } # end loop with index j: updating paramaters
+
+        # Update sample covariance
+        B <- solve(Ident - A)
+        FB <- F_RAM %*% B
+        E <- B %*% S %*% t(B)
+        exp_cov <- F_RAM %*% E %*% t(F_RAM)
+        exp_cov_inv <- solve(exp_cov)
 
 
-      } else { # Numeric Jacobian matrix
-        x <- OpenMx::omxSetParameters(model = x, labels = param_names,
-                              values = param_estimates)
-        x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
-        jac <- OpenMx::omxManifestModelByParameterJacobian(model = x)
-      }
+        # Update Jacobian matrix
+        if (linear_MxModel) { # Analytic Jacobian matrix
 
-      if (!ms) {
-        jac <- jac[indices_p_star, , drop = FALSE]
-      }
+          for (j in indices_param) {
+            symm <- FB %*% A_deriv[[j]] %*% E %*% t(F_RAM)
+            jac[indices_p_star, j] <- lavaan::lav_matrix_vech(symm + t(symm) + FB %*% S_deriv[[j]] %*% t(FB))
+          }
 
-      # Update weight matrix and W matrix
-      V <- 0.5 * t(Dup) %*% kronecker(X = exp_cov_inv, Y = exp_cov_inv) %*% Dup
-      if (ms) {
-        V_m_cov <- matrix(data = 0, nrow = p_star_means, ncol = p_star_means)
-        V_m_cov[indices_p_star, indices_p_star] <- V
-        V_m_cov[indices_p_star_p_means, indices_p_star_p_means] <- exp_cov_inv
-        V <- V_m_cov
-      }
-      W <- solve(t(jac) %*% V %*% jac) %*% t(jac) %*% V
-
-      # Update the centered contributions to the sample moments
-      cent_md_up[ID_group, indices_p_star] <- cent_md[ID_group, indices_p_star] -
-        matrix(rep(x = lavaan::lav_matrix_vech(exp_cov), times = n_group), byrow = TRUE,
-               nrow = n_group, ncol = p_star)
-      if (ms) {
-        ### !!!! Orientation could be wrong
-        exp_means <- FB %*% m
-        means_matrix <- matrix(rep(x = exp_means, times = n), byrow = TRUE,
-                               nrow = n, ncol = p)
-        means_dev <- data_obs - means_matrix
-        cent_md_up[ID_group, indices_p_star_p_means] <- means_dev[ID_group, ]
-      }
-      cent_md_up <- as.matrix(cent_md_up)
-
-      updated_IPCs[ID_group, ] <- cent_md_up[ID_group, ] %*% t(W) +
-        matrix(rep(x = param_estimates, times = n_group), byrow = TRUE,
-               nrow = n_group, ncol = q)
-    } # end loop with index i: Find observations with identical covariates
+          if (ms) {
+            for (j in indices_param) {
+              jac[indices_p_star_p_means, j] <- FB %*% A_deriv[[j]] %*% B %*% m +
+                FB %*% m_deriv[[j]]
+            }
+          }
 
 
-    if (class(updated_IPCs)[1] == "try-error") {
-      breakdown <- TRUE
-    }
-
-    if (breakdown == FALSE) {
-
-      # Estimate updated IPC regression parameter
-      ipcr_data <- cbind(updated_IPCs, covariates)
-      colnames(ipcr_data)[indices_param] <- param_names_ipcr
-      for (j in indices_param) {
-        ipcr_list[[j]] <- do.call(what = "lm",
-                                  args = list(formula = paste(param_names_ipcr[j], "~", IV),
-                                              data = as.name("ipcr_data")))
-      }
-
-
-      ## Store results
-      it_est <- rbind(it_est, c(sapply(X = ipcr_list,
-                                       FUN = function(x) {coef(x)})))
-      it_se <- rbind(it_se, c(sapply(X = ipcr_list,
-                                     FUN = function(x) {sqrt(diag(vcov(x)))})))
-
-      ## Calculate model fit
-      if (iteration_info) {
-        for (i in indices_n) {
-          param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
+        } else { # Numeric Jacobian matrix
           x <- OpenMx::omxSetParameters(model = x, labels = param_names,
                                         values = param_estimates)
           x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
-          data_individual <- t(data_obs[i, , drop = FALSE])
-          sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
-          sigma_inv_individual <- solve(sigma_individual)
-          if (ms) {
-            mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
-            log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
-              (data_individual - mu_individual) + log(det(sigma_individual))
-          }  else {
-            log_lik_individual[i] <- t(data_individual) %*% sigma_inv_individual %*%
-              data_individual + log(det(sigma_individual))
-          }
+          jac <- OpenMx::omxManifestModelByParameterJacobian(model = x)
         }
-        log_lik <- c(log_lik, -0.5 * sum(log_lik_individual) + n * p * log(2 * pi))
-      }
 
-      # Covergence criteria
-      difference <- it_est[nrow(it_est), ] -
-        it_est[nrow(it_est) - 1, ]
-      nr_iterations <- nr_iterations + 1
-      cat("Iteration:", nr_iterations, "\n")
+        if (!ms) {
+          jac <- jac[indices_p_star, , drop = FALSE]
+        }
 
+        # Update weight matrix and W matrix
+        V <- 0.5 * t(Dup) %*% kronecker(X = exp_cov_inv, Y = exp_cov_inv) %*% Dup
+        if (ms) {
+          V_m_cov <- matrix(data = 0, nrow = p_star_means, ncol = p_star_means)
+          V_m_cov[indices_p_star, indices_p_star] <- V
+          V_m_cov[indices_p_star_p_means, indices_p_star_p_means] <- exp_cov_inv
+          V <- V_m_cov
+        }
+        W <- solve(t(jac) %*% V %*% jac) %*% t(jac) %*% V
+
+        # Update the centered contributions to the sample moments
+        cent_md_up[ID_group, indices_p_star] <- cent_md[ID_group, indices_p_star] -
+          matrix(rep(x = lavaan::lav_matrix_vech(exp_cov), times = n_group), byrow = TRUE,
+                 nrow = n_group, ncol = p_star)
+        if (ms) {
+          ### !!!! Orientation could be wrong
+          exp_means <- FB %*% m
+          means_matrix <- matrix(rep(x = exp_means, times = n), byrow = TRUE,
+                                 nrow = n, ncol = p)
+          means_dev <- data_obs - means_matrix
+          cent_md_up[ID_group, indices_p_star_p_means] <- means_dev[ID_group, ]
+        }
+        cent_md_up <- as.matrix(cent_md_up)
+
+        updated_IPCs[ID_group, ] <- cent_md_up[ID_group, ] %*% t(W) +
+          matrix(rep(x = param_estimates, times = n_group), byrow = TRUE,
+                 nrow = n_group, ncol = q)
+      } # end loop with index i: Find observations with identical covariates
+
+      updated_IPCs
+    }, # end expr of try()
+
+    outFile = stop("Iterated IPC regression aborted prematurely.\n", call. = FALSE)
+
+    )
+    # end try
+
+
+    # Estimate updated IPC regression parameter
+    ipcr_data <- cbind(updated_IPCs, covariates)
+    colnames(ipcr_data)[indices_param] <- param_names_ipcr
+    for (j in indices_param) {
+      ipcr_list[[j]] <- do.call(what = "lm",
+                                args = list(formula = paste(param_names_ipcr[j], "~", IV),
+                                            data = as.name("ipcr_data")))
     }
+
+
+    ## Store results
+    it_est <- rbind(it_est, c(sapply(X = ipcr_list,
+                                     FUN = function(x) {coef(x)})))
+    it_se <- rbind(it_se, c(sapply(X = ipcr_list,
+                                   FUN = function(x) {sqrt(diag(vcov(x)))})))
+
+    ## Calculate model fit
+    if (iteration_info) {
+      for (i in indices_n) {
+        param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
+        x <- OpenMx::omxSetParameters(model = x, labels = param_names,
+                                      values = param_estimates)
+        x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
+        data_individual <- t(data_obs[i, , drop = FALSE])
+        sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
+        sigma_inv_individual <- solve(sigma_individual)
+        if (ms) {
+          mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
+          log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
+            (data_individual - mu_individual) + log(det(sigma_individual))
+        }  else {
+          log_lik_individual[i] <- t(data_individual) %*% sigma_inv_individual %*%
+            data_individual + log(det(sigma_individual))
+        }
+      }
+      log_lik <- c(log_lik, -0.5 * sum(log_lik_individual) + n * p * log(2 * pi))
+    }
+
+    # Covergence criteria
+    difference <- it_est[nrow(it_est), ] -
+      it_est[nrow(it_est) - 1, ]
+    nr_iterations <- nr_iterations + 1
+    cat("Iteration:", nr_iterations, "\n")
+
   }
 
 
 
   # Catch errors --------
-  if (breakdown == TRUE) {
-    cat("The iterated IPC regression aborted prematurely.")
-    IPC$info$iterated_status <- "Iterated IPC regression aborted prematurely."
-  }
-
-  if(breakdown == FALSE & nr_iterations == max_it &
-     isFALSE(all(abs(difference) <= conv))) {
-    cat(paste("The iterated IPC regression algorithm did not converge after", max_it, "iterations. Consider to increase the maximum number of iterations."))
+  if(nr_iterations == max_it & isFALSE(all(abs(difference) <= conv))) {
+    warning("The iterated IPC regression algorithm did not converge after ", max_it,
+            " iterations. Consider to increase the maximum number of iterations.",
+            call. = FALSE)
     IPC$info$iterated_status <- paste("Iterated IPC regression reached the maximum number of", max_it, "iterations without converging.")
   }
 
-  if(breakdown == FALSE & nr_iterations < max_it &
-     isFALSE(all(abs(difference) > conv))) {
+  if(nr_iterations < max_it & isFALSE(all(abs(difference) > conv))) {
     cat("Iterated IPC regression converged.")
     IPC$info$iterated_status <- paste("Iterated IPC regression converged succesfully after", nr_iterations, "iterations.")
     IPC$IPCs <- as.data.frame(updated_IPCs)

@@ -230,10 +230,11 @@ ipcr <- function(fit, covariates = NULL, iterate = FALSE, iteration_info = FALSE
     if (covariate_status %in% c(0, 1)) {
 
       ipcr_data <- cbind(IPCs, covariates)
-      param_names_ipcr <- paste0("IPCs_", gsub("\\(|\\)", "", param_names))
-      param_names_ipcr <- gsub(pattern = "~~",replacement = ".WITH.", x = param_names_ipcr)
-      param_names_ipcr <- gsub(pattern = "=~",replacement = ".BY.", x = param_names_ipcr)
-      param_names_ipcr <- gsub(pattern = "~",replacement = ".ON.", x = param_names_ipcr)
+      param_names_ipcr <- paste0("IPCs_", gsub("\\(|\\)|\\]|\\[", "", param_names))
+      param_names_ipcr <- gsub(pattern = "~~", replacement = ".WITH.", x = param_names_ipcr)
+      param_names_ipcr <- gsub(pattern = "=~", replacement = ".BY.", x = param_names_ipcr)
+      param_names_ipcr <- gsub(pattern = "~", replacement = ".ON.", x = param_names_ipcr)
+      param_names_ipcr <- gsub(pattern = ",", replacement = ".", x = param_names_ipcr)
       colnames(ipcr_data)[seq_len(q)] <- param_names_ipcr
       IV <- paste(colnames(covariates), collapse = " + ")
       ipcr_list <- lapply(param_names_ipcr, FUN = function(x) {
