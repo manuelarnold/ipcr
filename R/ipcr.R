@@ -173,7 +173,7 @@ ipcr <- function(fit, covariates = NULL, iterate = FALSE, iteration_info = FALSE
   ## Check for definition variables in a OpenMx model
   ### iterated IPCR is not yet implemented for OpenMx models with definition variables
   ### Gives a warning and switches iterated from TRUE to FALSE
-  if (attr(class(fit), which = "package") == "OpenMx") {
+  if (class(fit) == "MxRAMModel") {
     if (OpenMx::imxHasDefinitionVariable(fit) & iterate) {
       warning("Iterated IPC regression is not available for OpenMx models with definition variables. Standard IPC regression is carried out instead of iterated IPC regression")
     iterated <- FALSE
