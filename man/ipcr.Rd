@@ -4,52 +4,173 @@
 \alias{ipcr}
 \title{Individual Parameter Contribution Regression}
 \usage{
-ipcr(fit, covariates = NULL, iterated = FALSE, conv = 1e-04,
-  max_it = 50)
+ipcr(
+  fit,
+  covariates = NULL,
+  iterate = FALSE,
+  iteration_info = FALSE,
+  conv = 1e-04,
+  max_it = 50,
+  regularization = FALSE,
+  s = "lambda.min",
+  alpha = 1,
+  weights = NULL,
+  nlambda = 100,
+  standardize = TRUE,
+  nfolds = 10,
+  linear_MxModel = TRUE
+)
 }
 \arguments{
-\item{fit}{a structural equation model estimated with OpenMx. Only single-group RAM-type OpenMx model are allowed. The model must contain an estimated covariance structure. The mean structure is optional.}
+\item{fit}{a fitted model object.}
 
-\item{covariates}{a data frame or matrix with covariates.}
+\item{covariates}{a vector, matrix, or data.frame with one or more covariates used to
+predict differences in the model parameters. Interaction and polynomial terms can be
+included as new variables which may require centering.}
 
-\item{iterated}{a logical value; if TRUE iterated IPC regression is performed after initial IPC regression.}
+\item{iterate}{a logical value; if TRUE iterated IPC regression is performed.
+Currently, iterated IPC regression is only available for models fitted with
+\pkg{lavaan} or \pkg{OpenMx}.}
+
+\item{iteration_info}{a logical value; if TRUE the parameter values for each iteration
+with corresponding log-likelihood value are stored in a matrix. Requesting this matrix
+increases the runtime.}
+
+\item{conv}{an integer used as a stopping criterion for iterated IPC regression. The
+criterion is the largest difference in any parameter estimate between iterations.}
 
 \item{max_it}{the maximum number of iterations for iterated IPC regressions.}
 
-\item{convergence_criterion}{an integer used as stopping criterion for iterated IPC regression. Criterion is the largest difference in all parameter estimate between iterations.}
+\item{regularization}{a logical value; if TRUE regularized linear regression models are
+fitted via penalized maximum likelihood using k-fold cross-validation.}
+
+\item{s}{a character."lambda.min" (default) gives the minimum mean cross-validated
+error. The other option is lambda.1se", which gives the most regularized model such
+that the error is within one standard error of the minimum. For regularized IPC
+regression only.}
+
+\item{alpha}{The elastic net mixing parameter with \eqn{0 \le \alpha \le 1}. alpha = 1
+is the lasso penalty (default) and alpha = 0 the rigde penalty. For regularized IPC
+ regression only.}
+
+\item{weights}{observation weights for regularization. Can be total counts if responses are
+proportion matrices. Default is 1 for each observation. For regularized IPC regression
+ only.}
+
+\item{nlambda}{the number of penalty terms. The default is 100. For regularized IPC
+regression only.}
+
+\item{standardize}{a logical value; if TRUE variables are standardized prior to
+regularization. This only affects regularization; standard/iterated IPC regression
+coefficients are not standardized.}
+
+\item{nfolds}{number of folds - default is 10. Although nfolds can be as large as the
+sample size (leave-one-out cross-validation), it is not recommended for large datasets.
+Smallest value allowable is 3. For regularized IPC regression only.}
+
+\item{linear_MxModel}{a logical value indicating if the structural equation model
+contains non-linear functions of model parameters (FALSE) or not (TRUE, default). TRUE
+speeds up the runtime of the linear model. Only relevant for models fitted with
+\pkg{OpenMx}.}
 }
 \value{
-Returns a new ipcr object.
+\code{ipcr} returns an object of \code{\link[base]{class}} "\code{ipcr}". An
+\code{ipcr} function call returns a list which may consist of the following elements:
+\tabular{ll}{
+\code{info} \tab a list with information about the \code{ipcr} function call \cr
+\code{IPCs} \tab a \code{data.frame} with IPCs \cr
+\code{regression_list} \tab a list with an (iterated) IPC regression model for each
+model parameter \cr
+\code{regularized_regression_list} \tab a list with a regularized (iterated) IPC
+regression model for each model parameter \cr
+\code{output} \tab formatted output that can be examined with \code{print} and
+\code{summary}
+}
+
+The function \code{summary} prints a summary of the IPC regression equations.
+\code{print} shows the arguments specified in the \code{ipcr} function call.
+\code{plot} visualizes the correlation between IPCs and covariates in the form of a
+heatmap.
+
+The generic functions \code{AIC}, \code{BIC}, \code{coef}, \code{confint},
+\code{effects}, \code{fitted}, \code{logLik}, \code{nobs}, \code{predict},
+\code{residuals}, \code{sigma}, and \code{vcvo} extract various information from the
+value returned by \code{ipcr}. Heteroskedastic robust IPC regression can be performed
+with the functions \code{{coeftest}} and \code{coefci} from \pkg{lmtest}. By default,
+these functions extract information for all model parameters. By specifying an
+additional \code{parameter} argument with the names of one or several of the model
+parameters as in \code{coef}, the return values can be limited to the corresponding
+model parameters.
 }
 \description{
-Explain parameter heterogeneity in a structural equation model with individual parameter contribution (IPC) regression. IPC Regression allows to test if parameter values differ across values of covariates.
+Explain and predict differences in model parameters with individual
+parameter contribution (IPC) regression. IPC regression allows studying heterogeneity
+in parameter estimates as a linear function of covariates. \code{ipcr} was
+mainly written for investigating parameter heterogeneity in structural equation models
+fitted with \pkg{lavaan} or \pkg{OpenMx} but also for models estimated with
+\code{\link[stats]{lm}} and \code{\link[stats]{glm}}.
+}
+\details{
+IPCs are rough approximations of individual-specific parameter values. The IPCs of
+individual \eqn{i} are defined as
+\deqn{IPC_i=\theta+A(\theta)^{-1}S(\theta,y_i),}
+where \eqn{\theta} are the estimated model parameters, \eqn{S(\theta,y_i)} is the
+estimating function (e.g, the first derivative of the log-likelihood), and \eqn{A(\theta)}
+is the expectation of the negative derivative of the estimating function (often called
+Hessian matrix). By regressing IPCs on covariates, parameter differences can be
+predicted.
+
+IPCs are often slightly biased. This bias can be removed with a procedure termed
+iterated IPC regression, which re-calculates the IPCs until the regression coefficients
+of the IPC regression models converge. Iterated IPCs often show larger variability
+than standard IPCs. \code{iterate=TRUE} performs iterated IPC regression.
+\code{regularization=TRUE} adds another list with regularized linear models to the
+\code{ipcr} object. All arguments related to regularization are passed to
+\code{\link[glmnet]{cv.glmnet}}. If requested, iterated IPCs will be used for the
+regularized IPC regression models.
 }
 \examples{
-# Specify an OpenMx model
-m <- mxModel(model = "CFA",
-            manifestVars = c("x1", "x2", "x3"),
-            latentVars = "f",
-            type = "RAM",
-            mxData(observed = ipcr_data, type = "raw"),
-            mxPath(from = "f", to = c("x1", "x2", "x3"), arrows = 1,
-                   free = c(FALSE, TRUE, TRUE), values = 1,
-                   labels = c("l1", "l2", "l3")),
-            mxPath(from = "f", arrows = 2, free = TRUE, values = 0.75,
-                   labels = "var_f"),
-            mxPath(from = c("x1", "x2", "x3"), arrows = 2, free = TRUE,
-                   values = 0.25, labels = c("e1", "e2", "e3")),
-            mxPath(from = "one", to = c("x1", "x2", "x3"), arrows = 1,
-                   free = FALSE, values = 0))
+# Structural equation model example using the lavaan package
 
-# Fit the model
-fit <- mxTryHard(model = m)
+## Load Holzinger and Swineford (1939) data provided by the lavaan package
+HS_data <- lavaan::HolzingerSwineford1939
 
-# Investigate the parameter estiamtes with IPC regression
-IPC_reg <- ipcr(fit = fit, covariates = ipcr_covariates, iterated = TRUE)
+## Remove observations with missing values
+HS_data <- HS_data[stats::complete.cases(HS_data), ]
 
-# Get an overview about parameter differences
-plot(IPC_reg)
+## lavaan model syntac for a single group model
+m <- 'visual =~ x1 + x2 + x3
+      textual =~ x4 + x5 + x6
+      speed =~ x7 + x8 + x9'
 
-# Show IPC regression output
-summary(object = IPC_reg)
+## Fit the model
+fit <- lavaan::cfa(model = m, data = HS_data)
+
+## Prepare a data.frame with covariates
+covariates <- HS_data[, c("sex", "ageyr", "agemo", "school", "grade")]
+
+## Regress parameters on covariates with the ipcr function
+res <- ipcr(fit = fit, covariates = covariates)
+
+## Plot heatmap with the correlation between parameters and predictors
+plot(res)
+
+## Show results (standard IPC regression)
+summary(res)
+
+## IPC regression with LASSO regularization
+res_reg <- ipcr(fit = fit, covariates = covariates, regularization = TRUE)
+
+## Show results (regularized standard IPC regression)
+summary(res_reg)
+}
+\references{
+Arnold, M., Oberski, D. L., Brandmaier, A. M., & Voelkle, M. C. (2019). Identifying
+heterogeneity in dynamic panel models with individual parameter contribution
+regression. \emph{Structural Equation Modeling, 27}, 613-628. doi:
+\href{https://doi.org/10.1080/10705511.2019.1667240}{10.1080/10705511.2019.1667240}
+}
+\seealso{
+\code{\link{get_ipcs}}, \code{\link{plot.ipcr}}, and
+\code{\link{summary.ipcr}}
 }

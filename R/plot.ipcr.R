@@ -1,57 +1,63 @@
-#' @title Plot Correlation between Covariates and IPCs
-#' @description This functions plots a heat map that visualizes the correlation between covariates and IPCs.
+#' @title Plot Correlations between Covariates and IPCs
+#' @description This functions plots a heat map that visualizes the correlation between
+#' covariates and IPCs.
 #' @param x an ipcr object.
-#' @param ipc_method character string indicating whether the relationship between covariates and initial IPCs (method = “initial”, default option) or the iterated IPCs (method = “iterated”) is drawn.
-#' @param cor_method a character string indicating which correlation coefficient (or covariance) is to be computed. One of "pearson" (default), "kendall", or "spearman".
-#' @examples
-#' # Plot the correlation between covariates and initial IPCs.
-#' plot(x = IPC_reg)
-#' @export plot.ipcr
+#' @param print_corr a logical value; if TRUE correlation coefficients are added on the heatmap.
+#' @param ... other arguments.
+#' @details This function is a wrapper for \code{\link[ggplot2]{ggplot}}. Currently,
+#' arguments passed to \code{ggplot} cannot be changed.
+#' @export
 
-plot.ipcr <- function(x, ipc_method = "initial", cor_method = "pearson") {
+plot.ipcr <- function(x, print_corr = FALSE, ...) {
 
-  # Check arguments
-  if (ipc_method != "initial" & ipc_method != "iterated") {
-    stop("'ipc_method' must be either 'initial' or 'iterated'")
+  # check for covariates
+  if (x$info$covariates[1] == "no covariates found") {
+    stop("no covariates found")
   }
 
-  if (cor_method != "pearson" & cor_method != "kendall" &
-      cor_method != "spearman") {
-    stop("'cor_method' must be either 'pearson', 'kendall', or 'spearman'")
+  # Re-code characters and factors into dummy variables
+  covariates <- x$regression_list[[1]]$model[, -1]
+  if (any(unlist(lapply(covariates, function(x) {is.character(x) | is.factor(x)})))) {
+    covariates_strings <- Filter(function(x) {is.character(x) | is.factor(x)}, covariates)
+    string_formula <- paste(colnames(covariates_strings), collapse = "+")
+    dummies <- stats::model.matrix(stats::formula(paste("~", string_formula)), data = covariates_strings)[, -1]
+    covariates <- covariates[, !unlist(lapply(covariates, function(x) {is.character(x) | is.factor(x)}))]
+    covariates <- cbind(covariates, dummies)
   }
 
-  # Compute correlation matrix
-  COR <- cor(x = x$InitialIPCs, y = x$Covariates, method = cor_method)
+  # Correlation matrix
+  COR <- stats::cor(x = x$IPCs, y = covariates)
 
-  # Transform data into longformatio
-  longData <- melt(COR)
+  # Transform data into long format
+  p <- nrow(COR)
+  q <- ncol(COR)
 
-  # Get names
-  if (ipc_method == "initial") {
-    ipc_name <- "Initial IPCs"
-  }
-  if (ipc_method == "iterated") {
-    ipc_name <- "Iterated IPCs"
-  }
 
-  if (cor_method == "pearson") {
-    cor_name <- "Pearson\ncorrelation"
-  }
-  if (cor_method == "kendall") {
-    cor_name <- "Kendall\ncorrelation"
-  }
-  if (cor_method == "spearman") {
-    cor_name <- "Spearman\ncorrelation"
-  }
+  long_data <- data.frame(parameter = rep(x$info$parameters, times = q),
+                          covariate = rep(x$info$covariates, each = p),
+                          value = c(COR))
 
-  ggplot(data = longData, aes(Var2, Var1, fill = value))+
-    geom_tile(color = "white") +
-    scale_fill_gradient2(low = "blue", high = "red", mid = "white",
-                         midpoint = 0, limit = c(-1, 1), space = "Lab",
-                         name = cor_name) +
-    labs(x = "Covariates", y = "Parameters", title = ipc_name) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                     size = 12, hjust = 1)) +
-    coord_fixed()
+  # Heatmap
+  res <- ggplot2::ggplot(data = long_data,
+                         ggplot2::aes(x = long_data[, 2],
+                                      y = long_data[, 1],
+                                      fill = long_data[, 3])) +
+    ggplot2::geom_tile(color = "white") +
+    ggplot2::scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                                  midpoint = 0, limit = c(-1, 1), space = "Lab",
+                                  name = "Corr.") +
+    ggplot2::labs(x = "Covariates", y = "Parameters") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, vjust = 1, size = 12,
+                                                       hjust = 1)) +
+    ggplot2::coord_fixed()
+
+  if (print_corr) {
+    res +
+      ggplot2::geom_text(ggplot2:: aes(x = long_data[, 2], y =  long_data[, 1],
+                                       label = round(long_data[, 3], digits = 2)),
+                         color = "black")
+  } else {
+    res
+  }
 }
