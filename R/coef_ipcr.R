@@ -1,17 +1,21 @@
+#' @noRd
 coef_ipcr <- function(x, ...) {
   UseMethod("coef_ipcr")
 }
 
+#' @noRd
 coef_ipcr.default <- function(x, ...) {
   coef(x, ...)
 }
 
+#' @noRd
 coef_ipcr.lm <- function(x, ...) {
   res <- stats::coef(x)
   res <- c(res, "residual" = mean(x$residuals^2))
   res
 }
 
+#' @noRd
 coef_ipcr.lmerMod <- function(x, ...) {
   var_corr <- as.data.frame(lme4::VarCorr(x))$vcov
   parts <- lme4::getME(x, "theta")
@@ -21,6 +25,7 @@ coef_ipcr.lmerMod <- function(x, ...) {
   res
 }
 
+#' @noRd
 coef_ipcr.glmerMod <- function(x, ...) {
   var_corr <- as.data.frame(lme4::VarCorr(x))$vcov
   parts <- lme4::getME(x, "theta")
@@ -30,6 +35,7 @@ coef_ipcr.glmerMod <- function(x, ...) {
   res
 }
 
+#' @noRd
 coef_ipcr.lavaan <- function(x, ...) {
   if (x@Model@eq.constraints) {
     res <- lavaan::coef(x)[!duplicated(names(lavaan::coef(x)))]

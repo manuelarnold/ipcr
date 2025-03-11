@@ -1,5 +1,6 @@
-iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv, max_it,
-                                     linear_MxModel, ...) {
+#' @noRd
+iterated_ipcr.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv,
+                                     max_it, linear_MxModel, ...) {
 
   # Preparations --------
   ## Model properties

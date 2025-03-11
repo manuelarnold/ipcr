@@ -1,3 +1,4 @@
+#' @noRd
 estfun.MxRAMModel <- function(x, ...) {
 
   # Model information

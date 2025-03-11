@@ -1,4 +1,6 @@
-iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv, max_it, linear, ...) {
+#' @noRd
+iterated_ipcr.lavaan <- function(x, IPC, iteration_info, covariates, conv,
+                                 max_it, linear, ...) {
 
   # Preparations --------
   ## Model properties

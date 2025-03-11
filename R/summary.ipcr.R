@@ -11,67 +11,19 @@
 #' @return NULL
 #' @export
 
-summary.ipcr <- function(object, regularization = TRUE, digits = 3, verbose = FALSE, ...) {
+summary.ipcr <- function(object, ...) {
+  cat("Individual Parameter Contribution Regression\n\n")
 
-  # Verbose summary
-  if (verbose) {
-    output <- "ipcr settings:"
-    output <- c(output, "")
-    output <- c(output, print_info(object$info)[-1])
-    if (is.list(object$regression_list)) {
-      output <- c(output, "")
-      if(object$info$iterate) {
-        output <- c(output, "Iterated IPC regression coefficients:")
-      } else {
-        output <- c(output, "Standard IPC regression coefficients:")
-      }
-      rounded_coefficients <- data.frame(
-        lapply(object$output$coefficients_matrix,
-               function(y) {if(is.numeric(y)) round(y, digits = digits) else y}))
-      output <- c(output, utils::capture.output(rounded_coefficients))
-    }
-    if (is.list(object$regularized_regression_list)) {
-      output <- c(output, "")
-      output <- c(output, "Regularized IPC regression coefficients")
-      zero_coefficients <- which(object$output$regularized_coefficients_matrix$Estimate == 0)
-      rounded_coefficients <- data.frame(
-        lapply(object$output$regularized_coefficients_matrix,
-               function(y) {if(is.numeric(y)) round(y, digits = digits) else y}))
-      rounded_coefficients[zero_coefficients, "Estimate"] <- "."
-      output <- c(output, utils::capture.output(rounded_coefficients))
-    }
-  } else {
+  cat("Marginal Linear Effects\n\n")
 
-    ## Standard summary
-    # Regularized IPC regression was performed and requested
-    if(is.list(object$regularized_regression_list) & regularization) {
-      if(object$info$iterate) {
-        output <- "Regularized iterated IPC regression coefficients:"
-      } else {
-        output <- "Regularized standard IPC regression coefficients:"
-      }
-      zero_coefficients <- which(object$output$regularized_coefficients_matrix$Estimate == 0)
-      rounded_coefficients <- data.frame(
-        lapply(object$output$regularized_coefficients_matrix,
-               function(y) {if(is.numeric(y)) round(y, digits = digits) else y}))
-      rounded_coefficients[zero_coefficients, "Estimate"] <- "."
-      output <- c(output, utils::capture.output(rounded_coefficients))
-    } else if (is.list(object$regression_list)) {
-      if(object$info$iterate) {
-        output <- "Iterated IPC regression coefficients:"
-      } else {
-        output <- "Standard IPC regression coefficients:"
-      }
-      rounded_coefficients <- data.frame(
-        lapply(object$output$coefficients_matrix,
-               function(y) {if(is.numeric(y)) round(y, digits = digits) else y}))
-      output <- c(output, utils::capture.output(rounded_coefficients))
-    } else {
-      output <- "IPCs:"
-      output <- c(output, object$output$info)
-    }
-  }
+  cat("MANCOVA:\n")
+  print(object$output$mancova)
+  cat("\n")
 
-  writeLines(output)
+  cat("F-Tests:\n")
+  print(object$output$F_test)
+  cat("\n")
 
+  cat("Individual Parameter Contribution Regression Coefficients:\n")
+  print(object$output$ipcr)
 }

@@ -1,11 +1,14 @@
+#' @noRd
 bread_ipcr <- function(x, ...) {
   UseMethod("bread_ipcr")
 }
 
+#' @noRd
 bread_ipcr.default <- function(x, ...) {
   sandwich::bread(x, ...)
 }
 
+#' @noRd
 bread_ipcr.lm <- function(x, ...) {
   bread_matrix <- sandwich::bread(x)
   dims <- NROW(bread_matrix)
@@ -16,14 +19,17 @@ bread_ipcr.lm <- function(x, ...) {
   res
 }
 
+#' @noRd
 bread_ipcr.lmerMod <- function(x, ...) {
   as.matrix(merDeriv::bread.lmerMod(x, full = TRUE))
 }
 
+#' @noRd
 bread_ipcr.glmerMod <- function(x, ...) {
   as.matrix(merDeriv::bread.glmerMod(x, full = TRUE))
 }
 
+#' @noRd
 bread_ipcr.lavaan <- function(x, ...) {
   if (x@Model@eq.constraints) {
     K <- eval(parse(text = "lavaan:::lav_constraints_R2K(x@Model)"))
@@ -34,7 +40,7 @@ bread_ipcr.lavaan <- function(x, ...) {
   res
 }
 
+#' @noRd
 bread_ipcr.MxRAMModel <- function(x, ...) {
   x$output$vcov * x$data$numObs
 }
-

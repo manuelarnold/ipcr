@@ -22,7 +22,7 @@ Per default all model parameters are plotted}
 covariates are plotted.}
 
 \item{confidence_level}{a numeric. The confidence interval plotted. 0.95 (resulting) in
-95\% confidence interval is the default.}
+95\\% confidence interval is the default.}
 
 \item{...}{other arguments.}
 }

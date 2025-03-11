@@ -17,7 +17,7 @@ A \code{data.frame} containing the of a fitted model. The dimensions of this
 }
 \description{
 This functions calculates the individual parameter contributions (IPCs) of
- a fitted model.
+a fitted model.
 }
 \details{
 \code{get_ipcs} is a convenience function for obtaining IPCs. The more
