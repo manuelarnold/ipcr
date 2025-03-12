@@ -137,7 +137,6 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
 
   ## Model parameters
   param_estimates <- coef_ipcr(fit)
-  q <- length(param_estimates)
   param_names <- names(param_estimates)
 
 
