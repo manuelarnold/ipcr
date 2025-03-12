@@ -21,6 +21,7 @@ install.packages("remotes") # Install remotes if not already installed
 remotes::install_github("manuelarnold/ipcr")
 ```
 
+---
 
 ## Example
 
@@ -66,5 +67,5 @@ summary(res)
 #res_reg <- ipcr(fit = fit, predictors = predictors, regularization = TRUE) currently not functional
 
 # Display results of regularized IPC regression
-summary(res_reg)
+# summary(res_reg)
 ```
