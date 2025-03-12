@@ -1,7 +1,7 @@
 Package: ipcr
 Type: Package
 Title: Individual Parameter Contribution Regression
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: c(person("Manuel", "Arnold", email = "manuel.arnold@hu-berlin.de",
                     role = c("aut", "cre")),
              person("Julien Patrick", "Irmer",
@@ -14,6 +14,6 @@ Description: Provides methods for explaining and predicting individual and group
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-Imports: ggplot2, glmnet, lavaan, lme4, lmtest, merDeriv, methods, OpenMx, sandwich
+Imports: ggplot2, glmnet, lavaan, lme4, lmtest, merDeriv, OpenMx, sandwich
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2

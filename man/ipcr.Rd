@@ -27,11 +27,16 @@ An object of class \code{"ipcr"}, which is a list containing the following eleme
 
 \tabular{ll}{
 \code{info} \tab A list with metadata about the \code{ipcr} function call. \cr
-\code{ipc} \tab A \code{data.frame} containing individual parameter contributions (IPCs). \cr
-\code{mlm} \tab An object of class \code{lm} (for a single parameter) or \code{mlm}
-(for multiple parameters), representing the regression models fitted for each parameter. \cr
-\code{output} \tab A list of formatted output tables, which can be examined using
-\code{print} and \code{summary}. \cr
+\code{ipc} \tab A \code{data.frame} containing individual parameter
+contributions (IPCs). \cr
+\code{mlm} \tab An object of class \code{lm} (for a single parameter) or
+\code{mlm} (for multiple parameters), representing the regression models
+fitted for each parameter. \cr
+\code{mancova} \tab An object of class \code{manova} (if the model contains
+multiple parameters) or \code{NULL} (if the model contains only a single
+prameter). \cr
+\code{output} \tab A list of formatted output tables, which can be examined
+using \code{print} and \code{summary}. \cr
 }
 
 The function \code{summary} provides an overview of the IPC regression
@@ -68,7 +73,7 @@ By regressing IPCs on predictors, the sources of parameter heterogeneity can
 be examined.
 
 IPCs are known to be slightly biased. This bias can be corrected using
-\strong{iterated IPC regression}, which iteratively recalculates IPCs until
+iterated IPC regression, which iteratively recalculates IPCs until
 the regression coefficients of the IPC regression models converge.
 While iterated IPCs are unbiased, they often exhibit greater variability
 than standard IPCs. The function \code{ipcr_it} implements iterated IPC regression.
@@ -78,28 +83,38 @@ can be applied by passing the output of \code{ipcr} or \code{ipcr_it}
 to the \code{ipcr_reg} function.
 }
 \examples{
-# Example: Structural Equation Model using the lavaan package
-
-# Load Holzinger and Swineford (1939) dataset from the lavaan package
+# Load the Holzinger and Swineford (1939) dataset from the lavaan package
 HS_data <- lavaan::HolzingerSwineford1939
 
-# Define a confirmatory factor analysis (CFA) model in lavaan syntax
+# Remove observation 301 because one of its predictor values is missing
+HS_data <- HS_data[stats::complete.cases(HS_data), ]
+
+# Define a confirmatory factor analysis (CFA) model using lavaan syntax
 # This model specifies three latent factors: visual, textual, and speed
-m <- 'visual =~ x1 + x2 + x3
+m <- 'visual  =~ x1 + x2 + x3
       textual =~ x4 + x5 + x6
-      speed =~ x7 + x8 + x9'
+      speed   =~ x7 + x8 + x9'
 
 # Fit the CFA model
 fit <- lavaan::cfa(model = m, data = HS_data)
 
-# Select predictors for predicting parameter differences
-predictors <- HS_data[, c("sex", "ageyr", "agemo", "school", "grade")]
+# Preprocess the predictor variables
+
+# Combine the year part (ageyr) and the month part (agemo) of age into a single
+# variable that measures age in years
+HS_data$age <- HS_data$ageyr + HS_data$agemo / 12
+
+# Convert sex and grade into dummy variables (coded as 0 and 1)
+HS_data$sex <- HS_data$sex - 1
+HS_data$grade <- HS_data$grade - 7
+
+# Create a new data.frame with the predictor variables
+predictors <- HS_data[, c("sex", "age", "school", "grade")]
 
 # Perform Individual Parameter Contribution Regression (IPCR)
 res <- ipcr(fit = fit, predictors = predictors)
 
-# Plot a heatmap showing correlations between estimated parameters and
-# predictors
+# Plot a heatmap showing correlations between parameters and predictors
 plot(res)
 
 # Display a summary of the IPC regression results

@@ -33,7 +33,7 @@
 #' be examined.
 #'
 #' IPCs are known to be slightly biased. This bias can be corrected using
-#' **iterated IPC regression**, which iteratively recalculates IPCs until
+#' iterated IPC regression, which iteratively recalculates IPCs until
 #' the regression coefficients of the IPC regression models converge.
 #' While iterated IPCs are unbiased, they often exhibit greater variability
 #' than standard IPCs. The function \code{ipcr_it} implements iterated IPC regression.
@@ -47,11 +47,16 @@
 #'
 #' \tabular{ll}{
 #' \code{info} \tab A list with metadata about the \code{ipcr} function call. \cr
-#' \code{ipc} \tab A \code{data.frame} containing individual parameter contributions (IPCs). \cr
-#' \code{mlm} \tab An object of class \code{lm} (for a single parameter) or \code{mlm}
-#' (for multiple parameters), representing the regression models fitted for each parameter. \cr
-#' \code{output} \tab A list of formatted output tables, which can be examined using
-#' \code{print} and \code{summary}. \cr
+#' \code{ipc} \tab A \code{data.frame} containing individual parameter
+#' contributions (IPCs). \cr
+#' \code{mlm} \tab An object of class \code{lm} (for a single parameter) or
+#' \code{mlm} (for multiple parameters), representing the regression models
+#' fitted for each parameter. \cr
+#' \code{mancova} \tab An object of class \code{manova} (if the model contains
+#' multiple parameters) or \code{NULL} (if the model contains only a single
+#' prameter). \cr
+#' \code{output} \tab A list of formatted output tables, which can be examined
+#' using \code{print} and \code{summary}. \cr
 #' }
 #'
 #' The function \code{summary} provides an overview of the IPC regression
@@ -68,28 +73,38 @@
 #' from the \pkg{lmtest} package.
 #'
 #' @examples
-#' # Example: Structural Equation Model using the lavaan package
-#'
-#' # Load Holzinger and Swineford (1939) dataset from the lavaan package
+#' # Load the Holzinger and Swineford (1939) dataset from the lavaan package
 #' HS_data <- lavaan::HolzingerSwineford1939
 #'
-#' # Define a confirmatory factor analysis (CFA) model in lavaan syntax
+#' # Remove observation 301 because one of its predictor values is missing
+#' HS_data <- HS_data[stats::complete.cases(HS_data), ]
+#'
+#' # Define a confirmatory factor analysis (CFA) model using lavaan syntax
 #' # This model specifies three latent factors: visual, textual, and speed
-#' m <- 'visual =~ x1 + x2 + x3
+#' m <- 'visual  =~ x1 + x2 + x3
 #'       textual =~ x4 + x5 + x6
-#'       speed =~ x7 + x8 + x9'
+#'       speed   =~ x7 + x8 + x9'
 #'
 #' # Fit the CFA model
 #' fit <- lavaan::cfa(model = m, data = HS_data)
 #'
-#' # Select predictors for predicting parameter differences
-#' predictors <- HS_data[, c("sex", "ageyr", "agemo", "school", "grade")]
+#' # Preprocess the predictor variables
+#'
+#' # Combine the year part (ageyr) and the month part (agemo) of age into a single
+#' # variable that measures age in years
+#' HS_data$age <- HS_data$ageyr + HS_data$agemo / 12
+#'
+#' # Convert sex and grade into dummy variables (coded as 0 and 1)
+#' HS_data$sex <- HS_data$sex - 1
+#' HS_data$grade <- HS_data$grade - 7
+#'
+#' # Create a new data.frame with the predictor variables
+#' predictors <- HS_data[, c("sex", "age", "school", "grade")]
 #'
 #' # Perform Individual Parameter Contribution Regression (IPCR)
 #' res <- ipcr(fit = fit, predictors = predictors)
 #'
-#' # Plot a heatmap showing correlations between estimated parameters and
-#' # predictors
+#' # Plot a heatmap showing correlations between parameters and predictors
 #' plot(res)
 #'
 #' # Display a summary of the IPC regression results
@@ -133,13 +148,13 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
   }
 
 
-  # Storing object for output --------
+  # Storing object for output ----
 
-  ## Model parameters
+  ## Information from the model
   param_estimates <- coef_ipcr(fit)
-  q <- length(param_estimates)
   param_names <- names(param_estimates)
-
+  n <- nobs(fit)
+  q <- length(param_estimates)
 
   ## ipcr object
   IPCR <- list("info" = list(ipcr_type = "standard",
@@ -150,12 +165,7 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
                              linear_MxModel = linear_MxModel))
 
 
-
   # Individual parameter contribution regression --------
-
-  ## Information from the model
-  n <- nobs(fit)
-  q <- length(param_estimates)
 
   ## Compute score
   scores <- estfun_ipcr(fit)
@@ -177,6 +187,13 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
   mlm <- lm(ipc ~ ., data = predictors)
   IPCR$mlm <- mlm
 
+  ## MANCOVA
+  if (q > 1) {
+    IPCR$mancova <- manova(mlm)
+  } else {
+    IPCR$mancova <- NULL
+  }
+
 
   # Prepare output --------
 
@@ -185,16 +202,15 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
   ipcr_table <- data.frame()
 
   ### Initialize empty data.frame for the F tests
-  ftests_table <- data.frame()
+  F_tests_table <- data.frame()
 
   # Loop through models and extract coefficients
   for (i in seq_len(NCOL(mlm$coefficients))) {
     mlm_summary <- summary(mlm)[[i]]
 
     # Create a data frame for this model's coefficients
-    target_parameter <- colnames(mlm$coefficients)[i]
     temp_df_coef <- data.frame(
-      Parameter = target_parameter,
+      Parameter = colnames(mlm$coefficients)[i],
       Predictor = rownames(mlm_summary$coefficients),
       Estimate = mlm_summary$coefficients[, "Estimate"],
       Std_Error = mlm_summary$coefficients[, "Std. Error"],
@@ -207,8 +223,8 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
     F_Value <- mlm_summary$fstatistic[1]
     DF1 <- mlm_summary$fstatistic[2]
     DF2 <- mlm_summary$fstatistic[3]
-    temp_df_ftest <- data.frame(
-      Parameter = target_parameter,
+    temp_df_F_test <- data.frame(
+      Parameter = colnames(mlm$coefficients)[i],
       Rsquared = mlm_summary$r.squared,
       F_Value = F_Value,
       DF1 = DF1,
@@ -219,21 +235,25 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
 
     # Combine with the main tables
     ipcr_table <- rbind(ipcr_table, temp_df_coef)
-    ftests_table <- rbind(ftests_table, temp_df_ftest)
+    F_tests_table <- rbind(F_tests_table, temp_df_F_test)
   }
 
   ## Table with IPCR coefficients
   IPCR$output$ipcr <- ipcr_table
 
   ## MANCOVA table
-  IPCR$output$mancova <- summary(manova(mlm))$stats
+  IPCR$output$mancova <- summary(IPCR$mancova)$stats
 
   ## F-test table
-  IPCR$output$F_test <- ftests_table
+  IPCR$output$F_tests <- F_tests_table
+
+
+  # Return IPCR object ----
 
   ## Assign class
   class(IPCR) <- "ipcr"
 
   ## Return IPCR
   IPCR
+
 }

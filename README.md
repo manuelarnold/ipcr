@@ -25,10 +25,10 @@ remotes::install_github("manuelarnold/ipcr")
 ## Example
 
 ```r
-# Load Holzinger and Swineford (1939) dataset from the lavaan package
+# Load the Holzinger and Swineford (1939) dataset from the lavaan package
 HS_data <- lavaan::HolzingerSwineford1939
 
-# Remove observations with missing values to ensure complete data
+# Remove observation 301 because one of its predictor values is missing
 HS_data <- HS_data[stats::complete.cases(HS_data), ]
 
 # Define a confirmatory factor analysis (CFA) model using lavaan syntax
@@ -40,21 +40,31 @@ m <- 'visual  =~ x1 + x2 + x3
 # Fit the CFA model
 fit <- lavaan::cfa(model = m, data = HS_data)
 
-# Select predictors for parameter heterogeneity analysis
-predictors <- HS_data[, c("sex", "ageyr", "agemo", "school", "grade")]
+# Preprocess the predictor variables
+
+# Combine the year part (ageyr) and the month part (agemo) of age into a single
+# variable that measures age in years
+HS_data$age <- HS_data$ageyr + HS_data$agemo / 12
+
+# Convert sex and grade into dummy variables (coded as 0 and 1)
+HS_data$sex <- HS_data$sex - 1
+HS_data$grade <- HS_data$grade - 7
+
+# Create a new data.frame with the predictor variables
+predictors <- HS_data[, c("sex", "age", "school", "grade")]
 
 # Perform Individual Parameter Contribution Regression (IPCR)
 res <- ipcr(fit = fit, predictors = predictors)
 
 # Plot a heatmap showing correlations between parameters and predictors
-#plot(res) # not functional
+#plot(res) currently not functional
 
 # Display a summary of the IPC regression results
 summary(res)
 
 # Perform IPC regression with LASSO regularization
-#res_reg <- ipcr(fit = fit, predictors = predictors, regularization = TRUE) # not functional
+#res_reg <- ipcr(fit = fit, predictors = predictors, regularization = TRUE) currently not functional
 
 # Display results of regularized IPC regression
-#summary(res_reg) # not functional
+summary(res_reg)
 ```

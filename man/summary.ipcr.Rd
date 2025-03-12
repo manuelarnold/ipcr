@@ -2,24 +2,28 @@
 % Please edit documentation in R/summary.ipcr.R
 \name{summary.ipcr}
 \alias{summary.ipcr}
-\title{Inidividual Parameter Contribution Regression Summary}
+\title{Individual Parameter Contribution Regression Summary}
 \usage{
-\method{summary}{ipcr}(object, ...)
+\method{summary}{ipcr}(object, what = "everything", digits = 3, ...)
 }
 \arguments{
-\item{object}{an ipcr object.}
+\item{object}{An object of class \code{"ipcr"}.}
 
-\item{...}{further arguments passed to and from methods.}
+\item{what}{A character string specifying what to display. Options are:
+\itemize{
+\item \code{"everything"} (default): Displays all summary components.
+\item \code{"marginal"}: Shows only marginal linear effects.
+\item \code{"ipcr"}: Shows only individual parameter contribution regression coefficients.
+}}
 
-\item{regularization}{a logical value; whether to show results for regularized IPC
-regression (if computed) or non-regularized results.}
+\item{digits}{An integer indicating the number of decimal places to use in the output.
+Default is 3.}
 
-\item{digits}{integer indicating the number of decimal places to be used.}
-
-\item{verbose}{a logical value; if TRUE ipcr settings, non-regularized, and regularized
-results are shown.}
+\item{...}{Additional arguments passed to or from other methods.}
+}
+\value{
+Invisibly returns \code{NULL}.
 }
 \description{
-This functions returns the coefficients of the individual parameter
-contribution (IPC) regression equations.
+Summary method for objects of class \code{"ipcr"}.
 }
