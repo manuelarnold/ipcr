@@ -2,50 +2,49 @@
 % Please edit documentation in R/plot_differences.R
 \name{plot_differences}
 \alias{plot_differences}
-\title{Plot Estimated Conditional Differences in a Model Parameter}
+\title{Plot Estimated Conditional Differences in Model Parameters}
 \usage{
 plot_differences(
   x,
   parameter = NULL,
-  covariate = NULL,
+  predictor = NULL,
   confidence_level = 0.95,
   ...
 )
 }
 \arguments{
-\item{x}{an ipcr object.}
+\item{x}{An object of class \code{"ipcr"}.}
 
-\item{parameter}{a string. The name of a model parameter as in \code{coef}.
-Per default all model parameters are plotted}
+\item{parameter}{A character string specifying the name of a model parameter
+as displayed by \code{print}. By default, all model parameters are plotted.}
 
-\item{covariate}{a string. The name of a covariate. Per default, all the effects of all
-covariates are plotted.}
+\item{predictor}{A character string specifying the name of a predictor.
+By default, the effects of all predictors are plotted.}
 
-\item{confidence_level}{a numeric. The confidence interval plotted. 0.95 (resulting) in
-95\\% confidence interval is the default.}
+\item{confidence_level}{A numeric value indicating the confidence level
+for the confidence intervals. The default is \code{0.95}, corresponding
+to a 95\\% confidence interval.}
 
-\item{...}{other arguments.}
+\item{...}{Additional arguments (currently unused).}
 }
 \description{
-This functions plots the conditional values of the model parameters
-as a function of the covariates.
+Generates plots of estimated model parameters as a function of
+one or more predictors.
 }
 \details{
-Note that regression lines (for continuous covariates), means (for dummy variables),
-and confidence intervals are plotted, using the estimates of the model parameters and
-the corresponding variances and covariances of the parameter estimates. The plots show
-the estimated parameter value as a function of a covariate with all other covariates
-set equal to zero. (Mean) centering of the covariates may increase the interpretability
-of the plots.
-
+The function plots regression lines for continuous predictors and group means for
+dummy variables. Confidence intervals are included based on the model parameter
+estimates and their corresponding variances and covariances. The plots visualize
+the estimated parameter values as a function of a predictor, assuming all other
+predictors are set to zero. Mean-centering predictors may improve interpretability.
 This function is a wrapper for \code{\link[ggplot2]{ggplot}}.
 }
 \examples{
 # Generate data
-## Covariates
+## predictors
 z1 <- rep(0:1, each = 50)
 z2 <- rnorm(n = 100)
-covariates <- data.frame(z1 = z1, z2 = z2)
+predictors <- data.frame(z1 = z1, z2 = z2)
 ## Model data
 x <- rnorm(n = 100)
 y <- 0.5 + 0.75*z1 + rnorm(n = 100, sd = sqrt(0.75))
@@ -55,13 +54,13 @@ d <- data.frame(x = x, y = y)
 m <- lm(y ~ x, data = d)
 
 # Investigate model with IPC regression
-ipc <- ipcr(m, covariates = covariates)
+res <- ipcr(m, predictors = predictors)
 
-# Plotting parameter values as a function of the covariates
+# Plotting parameter values as a function of the predictors
 ## All plots
-plot_differences(ipc)
-## Plot the values of the regression slope x as a function of the covariate z1
-plot_differences(ipc, parameter = "x", covariate = "z1")
+plot_differences(res)
+## Plot the values of the regression slope x as a function of the predictor z1
+plot_differences(res, parameter = "x", predictor = "z1")
 }
 \seealso{
 \code{\link{plot.ipcr}},

@@ -45,9 +45,10 @@ model results. The \code{print} function displays the arguments specified in
 the \code{ipcr} call. The \code{plot} function visualizes the correlations
 between IPCs and predictors as a heatmap.
 
-Several generic functions can be applied to \code{ipcr} objects to extract model information, including:
-\code{AIC}, \code{BIC}, \code{coef}, \code{confint}, \code{effects}, \code{fitted}, \code{logLik},
-\code{nobs}, \code{predict}, \code{residuals}, \code{sigma}, and \code{vcov}.
+Several generic functions can be applied to \code{ipcr} objects to extract
+information from the mlm object, including: \code{coef}, \code{confint},
+\code{effects}, \code{fitted}, \code{nobs}, \code{predict}, \code{residuals},
+\code{sigma}, and \code{vcov}.
 
 Heteroskedasticity-robust IPC regression can be performed using \code{coeftest} and \code{coefci}
 from the \pkg{lmtest} package.

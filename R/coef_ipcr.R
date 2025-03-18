@@ -1,3 +1,6 @@
+# Internal coef() that behaves differently to the standard coef()
+
+
 #' @noRd
 coef_ipcr <- function(x, ...) {
   UseMethod("coef_ipcr")

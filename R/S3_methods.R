@@ -1,36 +1,24 @@
 #' @export
-AIC.ipcr <- function(object, parameter = NULL, k = 2, ...) {
-  if (is.null(parameter)) {
-    parameter <- object$info$parameters
-  }
-  res <- sapply(X = object$regression_list, FUN = AIC, ...)
-  res[parameter]
+coefci.ipcr <- function(x, ...) {
+  lmtest::coefci(x$mlm, ...)
 }
 
 #' @export
-BIC.ipcr <- function(object, parameter = NULL, ...) {
-  if (is.null(parameter)) {
-    parameter <- object$info$parameters
-  }
-  res <- sapply(X = object$regression_list, ..., FUN = BIC, ...)
-  res[parameter]
+coeftest.ipcr <- function(x, ...) {
+  lmtest::coeftest(x$mlm, ...)
 }
 
 #' @export
-effects.ipcr <- function(object, parameter = NULL, ...) {
-  if (is.null(parameter)) {
-    parameter <- object$info$parameters
-  }
-  res <- sapply(X = object$regression_list, FUN = effects, ...)
-  res[, parameter]
+confint.ipcr <- function(object, ...) {
+  stats::confint(object$mlm, ...)
 }
 
 #' @export
-vcov.ipcr <- function(object, parameter = NULL, ...) {
+effects.ipcr <- function(object, ...) {
+  effects(object$mlm, ...)
+}
 
-  if (is.null(parameter)) {
-    parameter <- object$info$parameters
-  }
-  res <- lapply(X = object$regression_list, FUN = vcov, ...)
-  res[parameter]
+#' @export
+vcov.ipcr <- function(object, ...) {
+  vcov(object$mlm, ...)
 }

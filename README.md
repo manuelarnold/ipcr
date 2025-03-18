@@ -4,7 +4,7 @@
 
 **ipcr** is an R package for predicting and explaining individual differences in model parameters using [individual parameter contribution regression (IPCR)](https://doi.org/10.1080/10705511.2019.1667240). IPCR allows estimated model parameters to be regressed on predictors, enabling the study of parameter heterogeneity. It serves as an alternative to methods such as random-effects models and multi-group models.
 
-**ipcr** is primarily designed for **structural equation models (SEMs)** estimated with [`lavaan`](https://lavaan.ugent.be/) or [`OpenMx`](https://openmx.ssri.psu.edu/). However, it can also be applied to models fitted using base R’s [`lm()`](https://rdrr.io/r/stats/lm.html) and [`glm()`](https://rdrr.io/r/stats/glm.html) functions, as well as `lmer()` from the [`lme4`](https://cran.r-project.org/package=lme4) package.
+**ipcr** is primarily designed for structural equation models (SEMs) estimated with [`lavaan`](https://lavaan.ugent.be/) or [`OpenMx`](https://openmx.ssri.psu.edu/). However, it can also be applied to models fitted using base R’s [`lm()`](https://rdrr.io/r/stats/lm.html) and [`glm()`](https://rdrr.io/r/stats/glm.html) functions, as well as `lmer()` from the [`lme4`](https://cran.r-project.org/package=lme4) package.
 
 This package is still under development. If you encounter any bugs, please report them in the [GitHub Issues](https://github.com/manuelarnold/ipcr/issues) section.
 
@@ -17,8 +17,14 @@ This package is still under development. If you encounter any bugs, please repor
 You can install `ipcr` from GitHub using the `remotes` package:
 
 ```r
-install.packages("remotes") # Install remotes if not already installed
+# Install remotes package if not already installed
+install.packages("remotes") 
+
+# Install ipcr package
 remotes::install_github("manuelarnold/ipcr")
+
+# Load ipcr package
+library(ipcr)
 ```
 
 ---
@@ -58,7 +64,7 @@ predictors <- HS_data[, c("sex", "age", "school", "grade")]
 res <- ipcr(fit = fit, predictors = predictors)
 
 # Plot a heatmap showing correlations between parameters and predictors
-#plot(res) currently not functional
+plot(res)
 
 # Display a summary of the IPC regression results
 summary(res)

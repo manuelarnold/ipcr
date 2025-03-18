@@ -3,70 +3,42 @@ setOldClass("ipcr")
 
 #' @export
 setMethod(f = "coef", signature = signature(object = "ipcr"),
-          definition = function(object, parameter = NULL, ...) {
-            if (is.null(parameter)) {
-              parameter <- object$info$parameters
-            }
-            res <- sapply(X = object$regression_list, FUN = coef)
-            res[, parameter]
+          definition = function(object, ...) {
+            coef(object$mlm, ...)
+          })
+
+#' @export
+setMethod(f = "coefficients", signature = signature(object = "ipcr"),
+          definition = function(object, ...) {
+            coefficients(object$mlm, ...)
           })
 
 #' @export
 setMethod(f = "fitted", signature = signature(object = "ipcr"),
-          definition = function(object, parameter = NULL, ...) {
-            if (is.null(parameter)) {
-              parameter <- object$info$parameters
-            }
-            res <- sapply(X = object$regression_list, FUN = fitted, ...)
-            res[, parameter]
-          })
-
-#' @export
-setMethod(f = "logLik", signature = signature(object = "ipcr"),
-          definition = function(object, parameter = NULL, ...) {
-            if (is.null(parameter)) {
-              parameter <- object$info$parameters
-            }
-            res <- sapply(X = object$regression_list, FUN = logLik, ...)
-            res[parameter]
+          definition = function(object, ...) {
+            fitted(object$mlm, ...)
           })
 
 #' @export
 setMethod(f = "nobs", signature = signature(object = "ipcr"),
-          definition = function(object, parameter = NULL, ...) {
-            if (is.null(parameter)) {
-              parameter <- object$info$parameters
-            }
-            res <- sapply(X = object$regression_list, FUN = nobs, ...)
-            res[parameter]
+          definition = function(object, ...) {
+            nobs(object$mlm, ...)
           })
 
 #' @export
 setMethod(f = "predict", signature = signature(object = "ipcr"),
-          definition = function(object, parameter = NULL, ...) {
-            if (is.null(parameter)) {
-              parameter <- object$info$parameters
-            }
-            res <- sapply(X = object$regression_list, FUN = predict, ...)
-            res[, parameter]
+          definition = function(object, ...) {
+            predict(object$mlm, ...)
           })
 
 #' @export
 setMethod(f = "residuals", signature = signature(object = "ipcr"),
-          definition = function(object, parameter = NULL, ...) {
-            if (is.null(parameter)) {
-              parameter <- object$info$parameters
-            }
-            res <- sapply(X = object$regression_list, FUN = residuals, ...)
-            res[, parameter]
+          definition = function(object, ...) {
+            residuals(object$mlm, ...)
           })
 
 #' @export
 setMethod(f = "sigma", signature = signature(object = "ipcr"),
-          definition = function(object, parameter = NULL, ...) {
-            if (is.null(parameter)) {
-              parameter <- object$info$parameters
-            }
-            res <- sapply(X = object$regression_list, FUN = sigma, ...)
-            res[parameter]
+          definition = function(object, ...) {
+            sigma(object$mlm, ...)
           })
