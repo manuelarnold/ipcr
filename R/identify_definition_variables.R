@@ -5,6 +5,8 @@
 #'
 #' @param x An OpenMx model.
 
+# This might be redundant
+
 identify_definition_variables <- function(x) {
   definition_variables <- c()
   for (i in 1:length(x@matrices)) {

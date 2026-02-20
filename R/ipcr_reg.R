@@ -3,9 +3,7 @@
 #' @param x A number.
 #' @param y A number.
 #' @return A number.
-#' @examples
-#' add(1, 1)
-#' add(10, 1)
+
 
 ipcr_reg <- function(fit, covariates = NULL, iterate = FALSE, iteration_info = FALSE,
                      conv = 0.0001, max_it = 50, regularization = FALSE, s = "lambda.min",

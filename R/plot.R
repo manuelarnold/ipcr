@@ -26,7 +26,7 @@ plot.ipcr <- function(x, print_corr = FALSE, ...) {
   }
 
   # Correlation matrix
-  COR <- stats::cor(x = x$ipc, y = predictors)
+  COR <- stats::cor(x = x$IPCs, y = predictors)
 
   # Transform data into long format
   p <- nrow(COR)

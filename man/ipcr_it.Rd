@@ -6,33 +6,38 @@
 \usage{
 ipcr_it(
   fit,
-  covariates = NULL,
-  iterate = FALSE,
-  iteration_info = FALSE,
-  conv = 1e-04,
-  max_it = 50,
-  regularization = FALSE,
-  s = "lambda.min",
-  alpha = 1,
-  weights = NULL,
-  nlambda = 100,
-  standardize = TRUE,
-  nfolds = 10,
-  linear_MxModel = TRUE
+  predictors,
+  analytic,
+  conv = 0.01,
+  learning_rate = c(seq(from = 1, to = 0.1, by = -0.1), 0.05, 0.01, 0.005, 0.001),
+  max_it = 350,
+  iteration_info = FALSE
 )
 }
 \arguments{
-\item{x}{A number.}
+\item{fit}{A fitted model object. Supported models include those estimated
+using \pkg{lavaan} and \pkg{OpenMx}.}
 
-\item{y}{A number.}
-}
-\value{
-A number.
+\item{predictors}{A vector, matrix, or \code{data.frame} containing one or
+more predictors used to predict variation in model parameters. Interaction
+and polynomial terms can be included as new variables, which may require
+centering.Ensure categorical variables are properly coded as factors or dummy
+variables.}
+
+\item{analytic}{Logical. If \code{FALSE} (default), functions of
+\pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
+If \code{TRUE}, custom functions will be used. This is only relevant for
+models fitted with \pkg{OpenMx} where the computation of the scores can take
+time. Supports \code{MxRAMModel} without algebras.}
+
+\item{conv}{an integer used as a stopping criterion for iterated IPC
+regression. The criterion is the largest difference in any parameter estimate
+between iterations.}
+
+\item{learning_rate}{stepsize used to calculate the updated IPCs. It starts
+with the largest value and uses smaller values until the algorithm converged
+or no other values are availabe.}
 }
 \description{
 Performs iterated individual parameter contribution regression.
-}
-\examples{
-add(1, 1)
-add(10, 1)
 }

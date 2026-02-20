@@ -1,48 +1,23 @@
-#' Iterated Individual Parameter Contribution Regression
-#'
-#' Performs iterated individual parameter contribution regression.
-#'
-#' @param fit A fitted model object. Supported models include those estimated
-#' using \pkg{lavaan} and \pkg{OpenMx}.
-#' @param predictors A vector, matrix, or \code{data.frame} containing one or
-#' more predictors used to predict variation in model parameters. Interaction
-#' and polynomial terms can be included as new variables, which may require
-#' centering.Ensure categorical variables are properly coded as factors or dummy
-#' variables.
-#' @param analytic Logical. If \code{FALSE} (default), functions of
-#' \pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
-#' If \code{TRUE}, custom functions will be used. This is only relevant for
-#' models fitted with \pkg{OpenMx} where the computation of the scores can take
-#' time. Supports \code{MxRAMModel} without algebras.
-#' @param conv an integer used as a stopping criterion for iterated IPC
-#' regression. The criterion is the largest difference in any parameter estimate
-#' between iterations.
-#' @param learning_rate stepsize used to calculate the updated IPCs. It starts
-#' with the largest value and uses smaller values until the algorithm converged
-#' or no other values are availabe.
+#' @noRd
+ipcr_it.MxRAMModel <- function(
+    fit, predictors, analytic, conv = NULL,
+    learning_rate = c(seq(from = 1, to = 0.1, by = -0.1), 0.05,
+                      0.01, 0.005, 0.001),
+    max_it = 350, iteration_info = FALSE) {
 
+#  ipcr_it.MxRAMModel <- function(x, IPC, iteration_info, covariates, conv,
+#                                 max_it, linear_MxModel, ...) {
 
-ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
-                    learning_rate = c(seq(from = 1, to = 0.1, by = -0.1), 0.05,
-                                      0.01, 0.005, 0.001),
-                    max_it = 350, iteration_info = FALSE) {
+  # Preprocess predictors ----
+  if (is.null(predictors)) {
+    stop("No predictors were provided.")
+  }
 
-  # Convert predictors to data.frame
-    predictors <- tryCatch(
-      as.data.frame(predictors),
-      error = function(e) stop("Predictors cannot be converted to a data frame.")
-    )
+  predictors <- as.data.frame(predictors)
 
-  check_arguments_ipcr_it_MxModel(fit = fit, predictors = predictors,
-                                  analytic = analytic, conv = conv,
-                                  learning_rate = learning_rate,
-                                  max_it = max_it,
-                                  iteration_info = iteration_info)
-
-  # Label predictors if necessary
   if (is.null(names(predictors)) | any(is.na(names(predictors)))) {
-    warning("Some predictors are not named. Renaming all predictors according to
-            the order of the data frame.")
+    warning("Some predictor are not named. Renaming all predictors using the
+            order of the data.frame.")
     pred_names <- paste0("predictor", seq_len(NCOL(predictors)))
     colnames(predictors) <- pred_names
   } else {
@@ -50,46 +25,26 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
   }
 
 
-  # Storing object for output ----
-
-  ## Information from the model
-  param_estimates <- coef_ipcr(fit)
-  param_names <- names(param_estimates)
-  N <- nobs(fit)
-  n_par <- length(param_estimates)
-
-  ## ipcr object
-  IPCR <- list("info" = list(ipcr_type = "iterated",
-                             name = deparse(substitute(fit)),
-                             class = class(fit),
-                             parameters = param_names,
-                             predictors = pred_names,
-                             linear_MxModel = linear_MxModel))
-
-
-
-
-
 
   # Preparations --------
   ## Model properties
-  data_obs <- as.matrix(x$data$observed[, x$manifestVars, drop = FALSE])
-  covariates_matrix <- as.matrix(covariates)
-  covariates_design_matrix <- cbind(1, covariates_matrix)
-  n <- x$data$numObs
-  p <- length(x$manifestVars)
-  p_unf = nrow(x$A$values)
+  data_obs <- as.matrix(fit$data$observed[, fit$manifestVars, drop = FALSE])
+  predictors_matrix <- as.matrix(predictors)
+  predictors_design_matrix <- cbind(1, predictors_matrix)
+  n <- fit$data$numObs
+  p <- length(fit$manifestVars)
+  p_unf = nrow(fit$A$values)
   p_star = (p * (p + 1)) / 2
   p_star_means = p * (p + 3) / 2
-  ms <- any(x$M$free)
-  param_estimates<- x$output$estimate
+  ms <- any(fit$M$free)
+  param_estimates<- fit$output$estimate
   param_names <- names(param_estimates)
   q <- length(param_estimates)
-  exp_cov <- OpenMx::mxGetExpected(model = x, component = "covariance")
+  exp_cov <- OpenMx::mxGetExpected(model = fit, component = "covariance")
   exp_cov_inv <- solve(exp_cov)
-  if(ms) {exp_mean <- OpenMx::mxGetExpected(model = x, component = "means")}
-  k <- NCOL(covariates)
-  Ident <- diag(x = 1, nrow = p_unf)
+  if(ms) {exp_mean <- OpenMx::mxGetExpected(model = fit, component = "means")}
+  k <- NCOL(predictors)
+  Ident <- diag(1, nrow = p_unf)
   Dup <- lavaan::lav_matrix_duplication(n = p)
   indices_n <- seq_len(n)
   indices_p_star <- seq_len(p_star)
@@ -98,17 +53,17 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
 
   ## RAM matrices
-  F_RAM <- x$F$values
-  A <- x$A$values
-  S <- x$S$values
-  m <- t(x$M$values)
+  F_RAM <- fit$F$values
+  A <- fit$A$values
+  S <- fit$S$values
+  m <- t(fit$M$values)
   B <- solve(Ident - A)
   FB <- F_RAM %*% B
   E <- B %*% S %*% t(B)
 
 
   ## Jacobian matrix
-  if (linear_MxModel) { # Analytic Jacobian matrix
+  if (analytic) { # Analytic Jacobian matrix
 
     ### Derivative Matrices
     Zero <- matrix(0, nrow = p_unf, ncol = p_unf)
@@ -118,15 +73,15 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
     m_deriv <- lapply(indices_param, function(x) {zero})
 
     for (i in indices_param) {
-      A_deriv[[i]][which(x$A$labels == param_names[i], arr.ind = TRUE)] <- 1
+      A_deriv[[i]][which(fit$A$labels == param_names[i], arr.ind = TRUE)] <- 1
     }
 
     for (i in indices_param) {
-      S_deriv[[i]][which(x$S$labels == param_names[i], arr.ind = TRUE)] <- 1
+      S_deriv[[i]][which(fit$S$labels == param_names[i], arr.ind = TRUE)] <- 1
     }
 
     for (i in indices_param) {
-      m_deriv[[i]][which(x$M$labels == param_names[i])] <- 1
+      m_deriv[[i]][which(fit$M$labels == param_names[i])] <- 1
     }
 
     ## Analytic Jacobian
@@ -145,7 +100,7 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
     }
 
   } else { # Numeric Jacobian matrix
-    jac <- OpenMx::omxManifestModelByParameterJacobian(model = x)
+    jac <- OpenMx::omxManifestModelByParameterJacobian(model = fit)
   }
 
   if (!ms) {jac <- jac[indices_p_star, , drop = FALSE]}
@@ -154,15 +109,15 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
   # Initial IPC regression --------
   ## Individual deviations from the sample moments
-  data_obs_c <- scale(x = data_obs, center = TRUE, scale = FALSE)
+  data_obs_c <- scale(data_obs, center = TRUE, scale = FALSE)
   mc <- matrix(data = apply(X = data_obs_c, MARGIN = 1,
                             FUN = function (x) {lavaan::lav_matrix_vech(x %*% t(x))}),
                nrow = n, ncol = p_star, byrow = TRUE)
-  vech_cov <- matrix(data = rep(x = lavaan::lav_matrix_vech(exp_cov), times = n),
+  vech_cov <- matrix(data = rep(lavaan::lav_matrix_vech(exp_cov), times = n),
                      byrow = TRUE, nrow = n, ncol = p_star)
   md <- mc - vech_cov
   if (ms) {
-    means <- matrix(data = rep(x = exp_mean, times = n), byrow = TRUE,
+    means <- matrix(data = rep(exp_mean, times = n), byrow = TRUE,
                     nrow = n, ncol = p)
     mean_dev <- data_obs - means
     md <- cbind(md, mean_dev)
@@ -179,37 +134,22 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
   ## Initial IPCs
   W <- solve(t(jac) %*% V %*% jac) %*% t(jac) %*% V
-  IPCs <- matrix(data = rep(x = param_estimates, times = n),
-                 byrow = TRUE, nrow = n, ncol = q) +
-    md %*% t(W)
-  IPCs <- as.data.frame(IPCs)
+  IPCs <- matrix(data = rep(param_estimates, times = n), byrow = TRUE, nrow = n,
+                 ncol = q) + md %*% t(W)
   colnames(IPCs) <- param_names
 
   ## Initial IPC regression
-  ipcr_data <- cbind(IPCs, covariates)
-  param_names_ipcr <- paste0("IPCs_", gsub("\\(|\\)", "", param_names))
-  IV <- paste(colnames(covariates), collapse = " + ")
-  colnames(ipcr_data)[seq_len(q)] <- param_names_ipcr
-  ipcr_list <- lapply(param_names_ipcr, FUN = function(x) {
-    do.call(what = "lm",
-            args = list(formula = paste(x, "~", IV), data = as.name("ipcr_data")))
-  })
-  names(ipcr_list) <- param_names
+  mlm <- lm(IPCs ~ ., data = predictors)
 
 
 
   # Start iterated IPC regression --------
   ## Storing objects for the updating procedure
-  it_est <- matrix(sapply(X = ipcr_list, FUN = function(x) {coef(x)}),
-                   nrow = 1, ncol = q * (k + 1))
-  it_se <- matrix(sapply(X = ipcr_list, FUN = function(x) {sqrt(diag(vcov(x)))}),
-                  nrow = 1, ncol = q * (k + 1))
+  it_est <- matrix(coef(mlm), nrow = 1, ncol = q * (k + 1))
+  it_se <- matrix(sqrt(diag(vcov(mlm))), nrow = 1, ncol = q * (k + 1))
 
   ## Center moment deviations at the covariate
-  center_reg_list <- apply(X = data_obs, MARGIN = 2, FUN = function(y) {
-    stats::lm(y ~ covariates_matrix)})
-  data_centered <- data_obs -
-    sapply(X = center_reg_list, FUN = function(x) {x$fitted.values})
+  data_centered <- as.matrix(resid(lm(data_obs ~ ., data = predictors)))
   cent_md <- matrix(data = apply(X = data_centered, MARGIN = 1,
                                  FUN = function(x) {lavaan::lav_matrix_vech(x %*% t(x))}),
                     nrow = n, ncol = p_star, byrow = TRUE)
@@ -220,16 +160,16 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
   ## Calculate model fit
   if (iteration_info) {
     log_lik_individual <- rep(NA, times = n)
+    param_estimates_ind <- predict(mlm)
     for (i in indices_n) {
-      param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
-      x <- OpenMx::omxSetParameters(model = x, labels = param_names,
-                                    values = param_estimates)
-      x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
+      fit <- OpenMx::omxSetParameters(model = fit, labels = param_names,
+                                    values = param_estimates_ind[i])
+      fit <- suppressMessages(OpenMx::mxRun(model = fit, useOptimizer = FALSE))
       data_individual <- t(data_obs[i, , drop = FALSE])
-      sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
+      sigma_individual <- OpenMx::mxGetExpected(model = fit, component = "covariance")
       sigma_inv_individual <- solve(sigma_individual)
       if (ms) {
-        mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
+        mu_individual <- t(OpenMx::mxGetExpected(model = fit, component = "means"))
         log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
           (data_individual - mu_individual) + log(det(sigma_individual))
       }  else {
@@ -241,25 +181,30 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
   }
 
   ## Groups of observations with same covariate values in the covariate
-  group <- transform(covariates, group_ID = as.numeric(interaction(covariates, drop = TRUE)))$group_ID
+  group <- transform(predictors, group_ID = as.numeric(interaction(predictors, drop = TRUE)))$group_ID
+
+  ###
+  ### HERE HERE HERE
+  ###
+
 
   ## Assign SEM parameters to the corresponding RAM matrices
   RAM_params <- rep(NA, times = q)
-  RAM_params[which(param_names %in% x$A$labels)] <- "A"
-  RAM_params[which(param_names %in% x$S$labels)] <- "S"
-  RAM_params[which(param_names %in% x$M$labels)] <- "M"
+  RAM_params[which(param_names %in% fit$A$labels)] <- "A"
+  RAM_params[which(param_names %in% fit$S$labels)] <- "S"
+  RAM_params[which(param_names %in% fit$M$labels)] <- "M"
 
   ## Get coordinates of the parameters in the corresponding RAM matrices
   RAM_coord <- list()
   for (i in indices_param) {
     if (RAM_params[i] == "A") {
-      RAM_coord[[i]] <- which(x$A$labels == param_names[i], arr.ind = TRUE)
+      RAM_coord[[i]] <- which(fit$A$labels == param_names[i], arr.ind = TRUE)
     }
     if (RAM_params[i] == "S") {
-      RAM_coord[[i]] <- which(x$S$labels == param_names[i], arr.ind = TRUE)
+      RAM_coord[[i]] <- which(fit$S$labels == param_names[i], arr.ind = TRUE)
     }
     if (RAM_params[i] == "M") {
-      RAM_coord[[i]] <- which(t(x$M$labels) == param_names[i], arr.ind = TRUE)
+      RAM_coord[[i]] <- which(t(fit$M$labels) == param_names[i], arr.ind = TRUE)
     }
   }
 
@@ -267,7 +212,7 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
   # Start the iteration process --------
   nr_iterations <- 0
-  difference <- rep(x = conv + 1, times = NCOL(it_est))
+  difference <- rep(conv + 1, times = NCOL(it_est))
   updated_IPCs <- matrix(NA, nrow = n, ncol = q)
   colnames(updated_IPCs) <- param_names
   unique_groups <- unique(group)
@@ -283,7 +228,7 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
         ID_group <- which(group == i)
         n_group <- length(ID_group)
-        IPC_pred <- covariates_design_matrix[group == i, , drop = FALSE][1, ]
+        IPC_pred <- predictors_design_matrix[group == i, , drop = FALSE][1, ]
 
         # Update RAM matrices
         for (j in indices_param){
@@ -312,7 +257,7 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
 
         # Update Jacobian matrix
-        if (linear_MxModel) { # Analytic Jacobian matrix
+        if (analytic) { # Analytic Jacobian matrix
 
           for (j in indices_param) {
             symm <- FB %*% A_deriv[[j]] %*% E %*% t(F_RAM)
@@ -328,10 +273,10 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
 
         } else { # Numeric Jacobian matrix
-          x <- OpenMx::omxSetParameters(model = x, labels = param_names,
+          fit <- OpenMx::omxSetParameters(model = fit, labels = param_names,
                                         values = param_estimates)
-          x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
-          jac <- OpenMx::omxManifestModelByParameterJacobian(model = x)
+          fit <- suppressMessages(OpenMx::mxRun(model = fit, useOptimizer = FALSE))
+          jac <- OpenMx::omxManifestModelByParameterJacobian(model = fit)
         }
 
         if (!ms) {
@@ -350,12 +295,12 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
         # Update the centered contributions to the sample moments
         cent_md_up[ID_group, indices_p_star] <- cent_md[ID_group, indices_p_star] -
-          matrix(rep(x = lavaan::lav_matrix_vech(exp_cov), times = n_group), byrow = TRUE,
+          matrix(rep(lavaan::lav_matrix_vech(exp_cov), times = n_group), byrow = TRUE,
                  nrow = n_group, ncol = p_star)
         if (ms) {
           ### !!!! Orientation could be wrong
           exp_means <- FB %*% m
-          means_matrix <- matrix(rep(x = exp_means, times = n), byrow = TRUE,
+          means_matrix <- matrix(rep(exp_means, times = n), byrow = TRUE,
                                  nrow = n, ncol = p)
           means_dev <- data_obs - means_matrix
           cent_md_up[ID_group, indices_p_star_p_means] <- means_dev[ID_group, ]
@@ -363,9 +308,9 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
         cent_md_up <- as.matrix(cent_md_up)
 
         updated_IPCs[ID_group, ] <- cent_md_up[ID_group, ] %*% t(W) +
-          matrix(rep(x = param_estimates, times = n_group), byrow = TRUE,
+          matrix(rep(param_estimates, times = n_group), byrow = TRUE,
                  nrow = n_group, ncol = q)
-      } # end loop with index i: Find observations with identical covariates
+      } # end loop with index i: Find observations with identical predictors
 
       updated_IPCs
     }, # end expr of try()
@@ -377,7 +322,7 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
 
     # Estimate updated IPC regression parameter
-    ipcr_data <- cbind(updated_IPCs, covariates)
+    ipcr_data <- cbind(updated_IPCs, predictors)
     colnames(ipcr_data)[indices_param] <- param_names_ipcr
     for (j in indices_param) {
       ipcr_list[[j]] <- do.call(what = "lm",
@@ -394,16 +339,16 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
 
     ## Calculate model fit
     if (iteration_info) {
+      param_estimates_ind <- predict(mlm)
       for (i in indices_n) {
-        param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
-        x <- OpenMx::omxSetParameters(model = x, labels = param_names,
-                                      values = param_estimates)
-        x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
+        fit <- OpenMx::omxSetParameters(model = fit, labels = param_names,
+                                      values = param_estimates_ind[i])
+        fit <- suppressMessages(OpenMx::mxRun(model = fit, useOptimizer = FALSE))
         data_individual <- t(data_obs[i, , drop = FALSE])
-        sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
+        sigma_individual <- OpenMx::mxGetExpected(model = fit, component = "covariance")
         sigma_inv_individual <- solve(sigma_individual)
         if (ms) {
-          mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
+          mu_individual <- t(OpenMx::mxGetExpected(model = fit, component = "means"))
           log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
             (data_individual - mu_individual) + log(det(sigma_individual))
         }  else {
@@ -445,8 +390,5 @@ ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
   if(iteration_info) {IPC$iteration_matrix <- cbind(log_lik, it_est)}
 
   IPC
-
-
-  class(IPC) <- "ipcr_it"
 
 }

@@ -4,10 +4,16 @@
 \alias{get_ipcs}
 \title{Calcuate Individual Parameter Contributions}
 \usage{
-get_ipcs(x)
+get_ipcs(x, analytic = FALSE, ...)
 }
 \arguments{
 \item{x}{a fitted model object.}
+
+\item{analytic}{Logical. If \code{FALSE} (default), functions of
+\pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
+If \code{TRUE}, custom functions will be used. This is only relevant for
+models fitted with \pkg{OpenMx} where the computation of the scores can take
+time. Supports \code{MxRAMModel} without algebras.}
 }
 \value{
 A \code{data.frame} containing the of a fitted model. The dimensions of this

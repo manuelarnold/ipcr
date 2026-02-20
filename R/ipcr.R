@@ -15,14 +15,15 @@
 #' and polynomial terms can be included as new variables, which may require
 #' centering.Ensure categorical variables are properly coded as factors or dummy
 #' variables.
-#' @param linear_MxModel Logical. If \code{TRUE} (default), assumes a linear
-#' structural equation model to speed up computations. If \code{FALSE}, allows
-#' for non-linear functions of model parameters. Only applicable to \pkg{OpenMx}
-#' models.
+#' @param analytic Logical. If \code{FALSE} (default), functions of
+#' \pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
+#' If \code{TRUE}, custom functions will be used. This is only relevant for
+#' models fitted with \pkg{OpenMx} where the computation of the scores can take
+#' time. Supports \code{MxRAMModel} without algebras.
 
 #' @details
 #' Individual parameter contributions (IPCs) provide rough approximations of
-#' individual-specific parameter values. The IPC for individual \eqn{i} is
+#' individual-specific parameter values. The IPCs of individual \eqn{i} is
 #' defined as:
 #' \deqn{IPC_i = \theta + A(\theta)^{-1} S(\theta, y_i),}
 #' where \eqn{\theta} represents the estimated model parameters,
@@ -33,22 +34,21 @@
 #' be examined.
 #'
 #' IPCs are known to be slightly biased. This bias can be corrected using
-#' iterated IPC regression, which iteratively recalculates IPCs until
-#' the regression coefficients of the IPC regression models converge.
-#' While iterated IPCs are unbiased, they often exhibit greater variability
-#' than standard IPCs. The function \code{ipcr_it} implements iterated IPC regression.
+#' iterated IPC regression, which iteratively recalculates the IPCs. The
+#' function \code{ipcr_it} implements iterated IPC regression.
 #'
 #' To identify the most important predictors of heterogeneity, regularization
 #' can be applied by passing the output of \code{ipcr} or \code{ipcr_it}
 #' to the \code{ipcr_reg} function.
 #'
 #' @return
-#' An object of class \code{"ipcr"}, which is a list containing the following elements:
+#' An object of class \code{"ipcr"}, which is a list containing the following
+#' elements:
 #'
 #' \tabular{ll}{
 #' \code{info} \tab A list with metadata about the \code{ipcr} function call. \cr
-#' \code{ipc} \tab A \code{data.frame} containing individual parameter
-#' contributions (IPCs). \cr
+#' \code{IPCs} \tab A \code{data.frame} containing individual parameter
+#' contributions. \cr
 #' \code{mlm} \tab An object of class \code{lm} (for a single parameter) or
 #' \code{mlm} (for multiple parameters), representing the regression models
 #' fitted for each parameter. \cr
@@ -125,13 +125,13 @@
 #' @seealso \code{\link{ipcr_it}}, \code{\link{ipcr_reg}}
 #' @export
 
-ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
+ipcr <- function(fit, predictors, analytic = FALSE) {
 
   # Checks ----
 
   ## Check arguments
   check_arguments_ipcr(fit = fit, predictors = predictors,
-                       linear_MxModel = linear_MxModel)
+                       analytic = analytic)
 
 
   # Preprocess predictors ----
@@ -163,21 +163,21 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
                              class = class(fit),
                              parameters = param_names,
                              predictors = pred_names,
-                             linear_MxModel = linear_MxModel))
+                             analytic = analytic))
 
 
   # Individual parameter contribution regression --------
 
-  ## Compute score
-  scores <- estfun_ipcr(fit)
+  ## Compute scores
+  scores <- estfun_ipcr(fit, analytic = analytic)
   bread_matrix <- bread_ipcr(fit)
-  ipc <- matrix(param_estimates, nrow = n, ncol = q, byrow = TRUE) +
+  IPCs <- matrix(param_estimates, nrow = n, ncol = q, byrow = TRUE) +
     scores %*% t(bread_matrix)
-  colnames(ipc) <- param_names
-  IPCR$ipc <- ipc
+  colnames(IPCs) <- param_names
+  IPCR$IPCs <- IPCs
 
-  ## Check if ipcs and predictors have the same number of rows
-  if (NROW(predictors) != NROW(ipc)) {
+  ## Check if IPCs and predictors have the same number of rows
+  if (NROW(predictors) != NROW(IPCs)) {
     stop("The number of rows in the IPCs and the predictor matrix do not
            match. Ensure that each row of the predictor data corresponds to the
            same row as the data used to fit the model. If necessary, remove rows
@@ -185,7 +185,7 @@ ipcr <- function(fit, predictors, linear_MxModel = TRUE) {
   }
 
   ## Regress IPCs on predictors
-  mlm <- lm(ipc ~ ., data = predictors)
+  mlm <- lm(IPCs ~ ., data = predictors)
   IPCR$mlm <- mlm
 
   ## MANCOVA

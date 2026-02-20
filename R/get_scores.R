@@ -2,6 +2,11 @@
 #' @description This functions extracts the scores of a fitted model. Arguments are passed
 #' to the generic function \code{\link[sandwich]{estfun}}.
 #' @param x a fitted model object.
+#' @param analytic Logical. If \code{FALSE} (default), functions of
+#' \pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
+#' If \code{TRUE}, custom functions will be used. This is only relevant for
+#' models fitted with \pkg{OpenMx} where the computation of the scores can take
+#' time. Supports \code{MxRAMModel} without algebras.
 #' @param ... arguments passed to methods.
 #' @return A \code{data.frame} containing the empirical estimating functions. Typically,
 #' this should be an \eqn{n * k} matrix corresponding to \eqn{n} observations and \eqn{k}
@@ -22,6 +27,6 @@
 #' @seealso \code{\link[sandwich]{estfun}}
 #' @export
 
-get_scores <- function(x, ...) {
-  data.frame(estfun_ipcr(x, ...))
+get_scores <- function(x, analytic = FALSE, ...) {
+  data.frame(estfun_ipcr(x, analytic = analytic, ...))
 }

@@ -8,8 +8,7 @@ plot_differences(
   x,
   parameter = NULL,
   predictor = NULL,
-  confidence_level = 0.95,
-  ...
+  confidence_level = 0.95
 )
 }
 \arguments{
@@ -23,9 +22,7 @@ By default, the effects of all predictors are plotted.}
 
 \item{confidence_level}{A numeric value indicating the confidence level
 for the confidence intervals. The default is \code{0.95}, corresponding
-to a 95\\% confidence interval.}
-
-\item{...}{Additional arguments (currently unused).}
+to a 95 percent confidence interval.}
 }
 \description{
 Generates plots of estimated model parameters as a function of
@@ -61,7 +58,8 @@ res <- ipcr(m, predictors = predictors)
 plot_differences(res)
 ## Plot the values of the regression slope x as a function of the predictor z1
 plot_differences(res, parameter = "x", predictor = "z1")
+
 }
 \seealso{
-\code{\link{plot.ipcr}},
+\code{\link{plot.ipcr}}
 }

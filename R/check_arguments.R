@@ -1,4 +1,4 @@
-check_arguments_ipcr <- function(fit, predictors, linear_MxModel) {
+check_arguments_ipcr <- function(fit, predictors, analytic) {
 
   # Check argument fit ----
 
@@ -46,12 +46,36 @@ check_arguments_ipcr <- function(fit, predictors, linear_MxModel) {
   }
 
 
-  # Check argument linear_MxModel ----
+  # Check argument analytic ----
 
-  ## Check if linear_MxModel argument
-  if (!is.logical(linear_MxModel)) {
-    stop("'linear_MxModel' must be TRUE or FALSE")
+  ## Check if analytic argument
+  if (!is.logical(analytic)) {
+    stop("'analytic' must be TRUE or FALSE")
   }
 
 }
 
+check_arguments_ipcr_it <- function(fit, predictors, analytic, conv,
+                                    learning_rate, max_it, iteration_info) {
+  if (is.null(predictors)) {
+    stop("No predictors were provided.")
+  }
+}
+
+
+check_arguments_ipcr_it_MxModel <- function(fit, predictors, analytic, conv,
+                                            learning_rate, max_it,
+                                            iteration_info) {
+
+  if (!inherits(fit, "MxModel"))
+    stop("`fit` must be an OpenMx MxModel (or subclass).")
+
+  if (is.null(fit$data$observed) | fit$data$type != "raw") {
+    stop("Model must contain raw data (mxData(..., type='raw')).")
+  }
+
+}
+
+check_arguments_ipcr_it_MxRAMModel <- function() {
+
+}

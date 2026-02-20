@@ -2,6 +2,11 @@
 #' @description This functions calculates the individual parameter contributions (IPCs) of
 #'  a fitted model.
 #' @param x a fitted model object.
+#' @param analytic Logical. If \code{FALSE} (default), functions of
+#' \pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
+#' If \code{TRUE}, custom functions will be used. This is only relevant for
+#' models fitted with \pkg{OpenMx} where the computation of the scores can take
+#' time. Supports \code{MxRAMModel} without algebras.
 #' @details \code{get_ipcs} is a convenience function for obtaining IPCs. The more
 #' powerful \code{\link[ipcr]{ipcr}} function also provides IPCs and can be used to predict
 #' differences in model parameters by regressing the IPCs on covariates.
@@ -17,9 +22,9 @@
 #' @seealso \code{\link[ipcr]{ipcr}}
 #' @export
 
-get_ipcs <- function(x) {
+get_ipcs <- function(x, analytic = FALSE, ...) {
   param_estimates <- coef_ipcr(x)
-  scores <- estfun_ipcr(x)
+  scores <- estfun_ipcr(x, analytic = analytic, ...)
   bread_matrix <- bread_ipcr(x)
   IPCs <- data.frame(matrix(param_estimates, nrow = nobs(x),
                             ncol = length(param_estimates), byrow = TRUE) +

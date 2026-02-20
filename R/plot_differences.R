@@ -1,6 +1,6 @@
-#' @title Plot Estimated Conditional Differences in Model Parameters
+#' Plot Estimated Conditional Differences in Model Parameters
 #'
-#' @description Generates plots of estimated model parameters as a function of
+#' Generates plots of estimated model parameters as a function of
 #' one or more predictors.
 #'
 #' @param x An object of class \code{"ipcr"}.
@@ -10,8 +10,7 @@
 #'   By default, the effects of all predictors are plotted.
 #' @param confidence_level A numeric value indicating the confidence level
 #'   for the confidence intervals. The default is \code{0.95}, corresponding
-#'   to a 95\% confidence interval.
-#' @param ... Additional arguments (currently unused).
+#'   to a 95 percent confidence interval.
 #'
 #' @details
 #' The function plots regression lines for continuous predictors and group means for
@@ -20,8 +19,6 @@
 #' the estimated parameter values as a function of a predictor, assuming all other
 #' predictors are set to zero. Mean-centering predictors may improve interpretability.
 #' This function is a wrapper for \code{\link[ggplot2]{ggplot}}.
-#'
-#' @export
 #'
 #' @examples
 #' # Generate data
@@ -45,11 +42,12 @@
 #' plot_differences(res)
 #' ## Plot the values of the regression slope x as a function of the predictor z1
 #' plot_differences(res, parameter = "x", predictor = "z1")
-#' @seealso \code{\link{plot.ipcr}},
+#'
+#' @seealso \code{\link{plot.ipcr}}
 #' @export
-
+#'
 plot_differences <- function(x, parameter = NULL, predictor = NULL,
-                             confidence_level = 0.95, ...) {
+                             confidence_level = 0.95) {
 
   # z-value for confidence interval
   z <- stats::qnorm(p = 0.5 + confidence_level / 2)
@@ -77,7 +75,7 @@ plot_differences <- function(x, parameter = NULL, predictor = NULL,
 
       # plotting data
       df <- data.frame(k = x$mlm$model[, k + 1],
-                       IPCs = x$ipc[, q])
+                       IPCs = x$IPCs[, q])
 
       # for dummy variables
       if (length(unique(df[, "k"])) == 2) {

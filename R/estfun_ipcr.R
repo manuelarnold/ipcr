@@ -1,11 +1,16 @@
 #' @noRd
-estfun_ipcr <- function(x, ...) {
+estfun_ipcr <- function(x, analytic = FALSE, ...) {
   UseMethod("estfun_ipcr")
 }
 
 #' @noRd
 estfun_ipcr.default <- function(x, ...) {
   sandwich::estfun(x, ...)
+}
+
+#' @noRd
+estfun_ipcr.lavaan <- function(x, ...) {
+  lavaan::estfun.lavaan(x)
 }
 
 #' @noRd

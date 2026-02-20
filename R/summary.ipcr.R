@@ -28,6 +28,7 @@ summary.ipcr <- function(object, what = "everything", digits = 3, ...) {
   mancova <- as.data.frame(object$output$mancova)
   mancova$stars <- sapply(mancova[, "Pr(>F)"], add_stars)
   mancova[, 1:6] <- round(mancova[, 1:6], digits = digits)
+
   mancova["Residuals", 2:7] <- ""
   mancova <- cbind(Predictor = rownames(mancova), mancova)
   mancova <- rbind(c(colnames(mancova)[1:7], ""), mancova)
