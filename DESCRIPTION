@@ -1,28 +1,32 @@
 Type: Package
 Package: ipcr
 Title: Individual Parameter Contribution Regression
-Version: 0.3.3
+Version: 0.4
 Authors@R: c(
     person("Manuel", "Arnold", , "manuel.arnold@hu-berlin.de", role = c("aut", "cre")),
-    person("Julien Patrick", "Irmer", , "julien.irmer@hu-berlin.de", role = "aut")
+    person("Julien Patrick", "Irmer", , "irmer@psychologie.uni-freiburg.de", role = "aut")
   )
 Description: Provides methods for explaining and predicting individual and
     group differences in model parameters using individual parameter
     contribution regression (IPCR). The package is primarily designed for
-    structural equation models fitted with the lavaan and OpenMx packages,
-    but also supports lme4, as well asthe lm and glm functions from the
-    stats package.
+    structural equation models fitted with the OpenMx and lavaan packages,
+    but also supports lmer and glmer models from lme4, as well as lm and
+    glm models from the stats package.
 License: GPL-3
-Imports: 
+URL: https://github.com/manuelarnold/ipcr
+BugReports: https://github.com/manuelarnold/ipcr/issues
+Imports:
+    car,
     ggplot2,
     glmnet,
     lavaan,
     lme4,
-    lmtest,
     merDeriv,
     OpenMx,
     sandwich
+Suggests:
+    testthat (>= 3.0.0)
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.1.0
+Config/testthat/edition: 3

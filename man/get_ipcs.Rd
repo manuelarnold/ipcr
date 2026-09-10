@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_ipcs.R
 \name{get_ipcs}
 \alias{get_ipcs}
-\title{Calcuate Individual Parameter Contributions}
+\title{Calculate Individual Parameter Contributions}
 \usage{
 get_ipcs(x, analytic = FALSE, ...)
 }
@@ -11,24 +11,26 @@ get_ipcs(x, analytic = FALSE, ...)
 
 \item{analytic}{Logical. If \code{FALSE} (default), functions of
 \pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
-If \code{TRUE}, custom functions will be used. This is only relevant for
-models fitted with \pkg{OpenMx} where the computation of the scores can take
-time. Supports \code{MxRAMModel} without algebras.}
+If \code{TRUE}, fast analytical scores are requested for a continuous
+raw-data \code{MxRAMModel}. Unsupported OpenMx models use numerical scores
+with a warning. See \code{\link{ipcr}} for the supported analytical scope.}
+
+\item{...}{Arguments passed to score-extraction methods.}
 }
 \value{
-A \code{data.frame} containing the of a fitted model. The dimensions of this
-\code{data.frame} are \eqn{n * k}, where \eqn{n} denotes the number of observations and
-\eqn{k} the number of parameters. The columns should be named as in
-\code{\link[stats]{coef}}.
+A numeric \eqn{n * k} matrix containing the IPCs of the fitted
+model, where \eqn{n} is the number of IPC units (clusters for mixed models)
+and \eqn{k} is the number of fitted parameters. Its columns are named
+according to the fitted model parameters.
 }
 \description{
-This functions calculates the individual parameter contributions (IPCs) of
+This function calculates the individual parameter contributions (IPCs) of
 a fitted model.
 }
 \details{
 \code{get_ipcs} is a convenience function for obtaining IPCs. The more
 powerful \code{\link[ipcr]{ipcr}} function also provides IPCs and can be used to predict
-differences in model parameters by regressing the IPCs on covariates.
+differences in model parameters by regressing the IPCs on predictors.
 }
 \references{
 Arnold, M., Oberski, D. L., Brandmaier, A. M., & Voelkle, M. C. (2019). Identifying

@@ -1,452 +1,185 @@
 #' Iterated Individual Parameter Contribution Regression
 #'
-#' Performs iterated individual parameter contribution regression.
+#' Performs iterated individual parameter contribution regression. The current
+#' implementation supports continuous ML models fitted with lavaan and
+#' raw-data OpenMx models. OpenMx RAM models can use fast analytical scores;
+#' other OpenMx models use a substantially slower numerical fallback.
 #'
-#' @param fit A fitted model object. Supported models include those estimated
-#' using \pkg{lavaan} and \pkg{OpenMx}.
-#' @param predictors A vector, matrix, or \code{data.frame} containing one or
-#' more predictors used to predict variation in model parameters. Interaction
-#' and polynomial terms can be included as new variables, which may require
-#' centering.Ensure categorical variables are properly coded as factors or dummy
-#' variables.
-#' @param analytic Logical. If \code{FALSE} (default), functions of
-#' \pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
-#' If \code{TRUE}, custom functions will be used. This is only relevant for
-#' models fitted with \pkg{OpenMx} where the computation of the scores can take
-#' time. Supports \code{MxRAMModel} without algebras.
-#' @param conv an integer used as a stopping criterion for iterated IPC
-#' regression. The criterion is the largest difference in any parameter estimate
-#' between iterations.
-#' @param learning_rate stepsize used to calculate the updated IPCs. It starts
-#' with the largest value and uses smaller values until the algorithm converged
-#' or no other values are availabe.
+#' @param x A fitted model object.
+#' @param predictors A vector, matrix, or `data.frame` containing one or more
+#'   predictors of parameter heterogeneity. Rows must correspond, in order, to
+#'   the raw-data rows used by `x`.
+#' @param analytic A single logical value. For `MxRAMModel` objects, `TRUE`
+#'   uses the fast analytical score calculation and `FALSE` uses repeated
+#'   numerical OpenMx score and Jacobian calculations. The numerical route can
+#'   be extremely slow. Unlike standard `ipcr()`, analytical iteration rejects
+#'   RAM models containing unsupported analytical features rather than silently
+#'   switching algorithms. General `MxModel` objects always use numerical row
+#'   gradients, regardless of this argument. The lavaan method uses lavaan's
+#'   scores for the initial IPCR and analytical RAM calculations during
+#'   iteration.
+#' @param conv A positive numeric convergence tolerance. An attempt converges
+#'   when no second-stage coefficient changes by more than `conv` times its
+#'   standard-IPCR standard error after accounting for the learning rate. Thus,
+#'   the default `conv = 0.01` limits changes to 1 percent of their initial
+#'   standard errors.
+#' @param learning_rate A non-empty numeric vector of learning rates in `(0, 1]`.
+#'   The default is `c(1, 0.5, 0.1)`. Rates are tried in the supplied order.
+#'   Each rate is held fixed during one attempt, and a new attempt restarts from
+#'   the pooled fitted model and its score calculation. The function returns as
+#'   soon as an attempt converges.
+#' @param max_it A positive whole number giving the maximum iterations for each
+#'   learning-rate attempt.
+#' @param iteration_info A single logical value. If `TRUE`, retain the complete
+#'   iteration history in a successful result or in the specialized error
+#'   condition signaled when no learning-rate attempt converges.
+#' @param variance_parameterization Character. The default, `"original"`,
+#'   iterates all model parameters on their fitted scale. For an analytical
+#'   OpenMx `MxRAMModel`, `"log"` identifies free parameters that occur
+#'   exclusively on the diagonal of the RAM S matrix and iterates them on the
+#'   log-variance scale. This option is not available for lavaan, general
+#'   `MxModel`, or numerical `MxRAMModel` iteration.
+#' @details
+#' For observation \eqn{i}, iteration \eqn{t}, and learning rate \eqn{alpha},
+#' the recalculated contribution is
+#' \deqn{IPC_i^{(t)} = theta_i^{(t)} + alpha I(theta_i^{(t)})^{-1}
+#' S_i(theta_i^{(t)}).}
+#' The parameter vector \eqn{theta_i^{(t)}} is predicted by the current IPC
+#' regression. Smaller learning rates damp the Fisher-scoring correction. If an
+#' attempt fails numerically or reaches `max_it`, the next supplied rate is
+#' tried. The first converged attempt is returned. If no attempt converges, all
+#' supplied rates are exhausted and the function signals an error rather than
+#' returning coefficients or inferential results from a nonconverged iteration.
+#'
+#' For coefficient \eqn{j}, the convergence statistic is
+#' \deqn{C_{SE}^{(t)} = \max_j
+#'   \frac{|\beta_j^{(t)} - \beta_j^{(t-1)}|}
+#'   {\alpha SE(\beta_j^{standard})}.}
+#' Dividing by the learning rate \eqn{\alpha} prevents a strongly damped update
+#' from being declared converged merely because its step was small. All
+#' standard-IPCR coefficient standard errors, including intercept standard
+#' errors, must be positive and finite. The diagnostic
+#' \deqn{C_{l}^{(t)} = \frac{|l^{(t)} - l^{(t-1)}|}{n}}
+#' records the absolute change in rowwise log-likelihood per analyzed
+#' observation. It is not part of the stopping rule. When \eqn{C_{SE}} meets
+#' the requested convergence tolerance but the learning-rate-adjusted value
+#' \eqn{C_l / \alpha} exceeds 0.001, the result is returned with a warning that
+#' the likelihood has not stabilized. This is a numerical diagnostic rather
+#' than a statistically calibrated test. The `print()` and `summary()` methods
+#' repeat this warning so that it remains visible when the result is inspected.
+#'
+#' Predictor rows with missing values are excluded from the second-stage
+#' regression and from every iterative update. Their rows remain in the
+#' returned `IPCs` and `scores` matrices, where they retain the values computed
+#' by the initial standard IPCR analysis. The `complete_rows` component
+#' identifies the rows that were actually iterated.
+#'
+#' With `variance_parameterization = "log"`, fixed S-diagonal elements remain
+#' unchanged and shared labels across multiple S-diagonal elements remain one
+#' equality-constrained parameter. A free label that also occurs off the S
+#' diagonal or in another RAM matrix is rejected because it cannot
+#' simultaneously represent a log variance and an untransformed parameter.
+#' The primary IPCs, scores, coefficients, tests, and convergence criterion are
+#' reported in the mixed coordinate system: log scale for identified variance
+#' parameters and original scale for all other parameters. The returned
+#' `natural_scale_IPCs` matrix exponentiates the log-variance IPC columns.
+#' The supplementary `output$natural_scale_effects` table reports variance
+#' ratios and changes from a one-unit increase in each second-stage design
+#' column, with the other design columns fixed at zero. Positive diagonal
+#' elements alone do not guarantee that a covariance matrix is positive
+#' definite, so log parameterization cannot prevent every numerical failure.
+#'
+#' The lavaan method currently supports single-group, continuous models fitted
+#' by normal-theory ML. Mean structures, simple equality constraints, and FIML
+#' data are supported. Multigroup, categorical, non-ML, conditional-x, and
+#' sampling-weighted lavaan models are rejected. The OpenMx analytical
+#' restrictions are described in [ipcr()]; setting `analytic = FALSE` provides
+#' a much slower numerical fallback for `MxRAMModel` objects.
+#'
+#' For a non-RAM `MxModel`, the numerical method estimates the information at
+#' each distinct predicted parameter vector from the outer product of OpenMx's
+#' numerical row gradients. It is restricted to converged models with
+#' top-level, unweighted raw data and a meaningful row-additive likelihood.
+#' Explicit `mxConstraint()` objects and penalties are not supported. The
+#' method evaluates the likelihood for each corresponding subset of raw-data
+#' rows when validating iterations and recording diagnostics. Models fitted
+#' only to summary statistics, models with unusable row gradients, and models
+#' whose free parameters cannot be set at the predicted values are rejected. A
+#' continuous predictor may create a distinct parameter vector for nearly every row and
+#' can consequently make this fallback prohibitively slow.
+#'
+#' @return On convergence, an object inheriting from classes `"ipcr_it"` and
+#'   `"ipcr"`. Its `convergence` component records the selected learning rate
+#'   and iteration, the final \eqn{C_{SE}}, \eqn{C_l}, and rate-adjusted
+#'   \eqn{C_l / \alpha} diagnostics, a `likelihood_stable` flag, and a summary
+#'   of every rate attempted before convergence. If no supplied rate
+#'   converges, the function signals an error condition inheriting from
+#'   `"ipcr_it_nonconvergence"`. The condition contains an `attempts` data
+#'   frame, and also an `iteration_history` data frame when
+#'   `iteration_info = TRUE`; it contains no IPC regression coefficients,
+#'   tests, or ordinary `"ipcr_it"` result. With log-variance parameterization,
+#'   a successful object additionally contains
+#'   `natural_scale_IPCs`, `parameterization`, and the supplementary table
+#'   `output$natural_scale_effects`. The latter reports the exponentiated
+#'   coefficient as a variance ratio and the natural-scale change from setting
+#'   the corresponding second-stage design column from zero to one while all
+#'   other non-intercept design columns are held at zero.
+#'
+#' @references
+#' Arnold, M., Oberski, D. L., Brandmaier, A. M., & Voelkle, M. C. (2020).
+#' Identifying heterogeneity in dynamic panel models with individual parameter
+#' contribution regression. *Structural Equation Modeling, 27*, 613--628.
+#'
+#' @examples
+#' # A compact iterated lavaan analysis with a binary IPC predictor
+#' lavaan_data <- lavaan::HolzingerSwineford1939
+#' lavaan_fit <- lavaan::cfa(
+#'   "visual =~ x1 + x2 + x3",
+#'   data = lavaan_data
+#' )
+#' lavaan_ipcr_it <- ipcr_it(
+#'   lavaan_fit,
+#'   predictors = data.frame(sex = lavaan_data$sex - 1)
+#' )
+#' summary(lavaan_ipcr_it)
+#'
+#' @export
+ipcr_it <- function(
+    x, predictors, analytic = TRUE, conv = 0.01,
+    learning_rate = c(1, 0.5, 0.1),
+    max_it = 350L, iteration_info = FALSE,
+    variance_parameterization = "original") {
+  UseMethod("ipcr_it")
+}
 
-
-ipcr_it <- function(fit, predictors, analytic, conv = 0.01,
-                    learning_rate = c(seq(from = 1, to = 0.1, by = -0.1), 0.05,
-                                      0.01, 0.005, 0.001),
-                    max_it = 350, iteration_info = FALSE) {
-
-  # Convert predictors to data.frame
-    predictors <- tryCatch(
-      as.data.frame(predictors),
-      error = function(e) stop("Predictors cannot be converted to a data frame.")
+validate_original_variance_parameterization_ipcr <- function(
+    variance_parameterization, backend) {
+  if (!is.character(variance_parameterization) ||
+      length(variance_parameterization) != 1L ||
+      is.na(variance_parameterization) ||
+      !identical(variance_parameterization, "original")) {
+    stop(
+      "Log-variance parameterization is available only for analytical ",
+      "OpenMx MxRAMModel iteration; ", backend,
+      " supports only variance_parameterization = \"original\".",
+      call. = FALSE
     )
-
-  check_arguments_ipcr_it_MxModel(fit = fit, predictors = predictors,
-                                  analytic = analytic, conv = conv,
-                                  learning_rate = learning_rate,
-                                  max_it = max_it,
-                                  iteration_info = iteration_info)
-
-  # Label predictors if necessary
-  if (is.null(names(predictors)) | any(is.na(names(predictors)))) {
-    warning("Some predictors are not named. Renaming all predictors according to
-            the order of the data frame.")
-    pred_names <- paste0("predictor", seq_len(NCOL(predictors)))
-    colnames(predictors) <- pred_names
-  } else {
-    pred_names <- names(predictors)
   }
-
-
-  # Storing object for output ----
-
-  ## Information from the model
-  param_estimates <- coef_ipcr(fit)
-  param_names <- names(param_estimates)
-  N <- nobs(fit)
-  n_par <- length(param_estimates)
-
-  ## ipcr object
-  IPCR <- list("info" = list(ipcr_type = "iterated",
-                             name = deparse(substitute(fit)),
-                             class = class(fit),
-                             parameters = param_names,
-                             predictors = pred_names,
-                             linear_MxModel = linear_MxModel))
-
-
-
-
-
-
-  # Preparations --------
-  ## Model properties
-  data_obs <- as.matrix(x$data$observed[, x$manifestVars, drop = FALSE])
-  covariates_matrix <- as.matrix(covariates)
-  covariates_design_matrix <- cbind(1, covariates_matrix)
-  n <- x$data$numObs
-  p <- length(x$manifestVars)
-  p_unf = nrow(x$A$values)
-  p_star = (p * (p + 1)) / 2
-  p_star_means = p * (p + 3) / 2
-  ms <- any(x$M$free)
-  param_estimates<- x$output$estimate
-  param_names <- names(param_estimates)
-  q <- length(param_estimates)
-  exp_cov <- OpenMx::mxGetExpected(model = x, component = "covariance")
-  exp_cov_inv <- solve(exp_cov)
-  if(ms) {exp_mean <- OpenMx::mxGetExpected(model = x, component = "means")}
-  k <- NCOL(covariates)
-  Ident <- diag(x = 1, nrow = p_unf)
-  Dup <- lavaan::lav_matrix_duplication(n = p)
-  indices_n <- seq_len(n)
-  indices_p_star <- seq_len(p_star)
-  indices_param <- seq_len(q)
-  indices_p_star_p_means <- (p_star + 1):p_star_means
-
-
-  ## RAM matrices
-  F_RAM <- x$F$values
-  A <- x$A$values
-  S <- x$S$values
-  m <- t(x$M$values)
-  B <- solve(Ident - A)
-  FB <- F_RAM %*% B
-  E <- B %*% S %*% t(B)
-
-
-  ## Jacobian matrix
-  if (linear_MxModel) { # Analytic Jacobian matrix
-
-    ### Derivative Matrices
-    Zero <- matrix(0, nrow = p_unf, ncol = p_unf)
-    A_deriv <- lapply(indices_param, function(x) {Zero})
-    S_deriv <- A_deriv
-    zero <- matrix(0, nrow = p_unf, ncol = 1)
-    m_deriv <- lapply(indices_param, function(x) {zero})
-
-    for (i in indices_param) {
-      A_deriv[[i]][which(x$A$labels == param_names[i], arr.ind = TRUE)] <- 1
-    }
-
-    for (i in indices_param) {
-      S_deriv[[i]][which(x$S$labels == param_names[i], arr.ind = TRUE)] <- 1
-    }
-
-    for (i in indices_param) {
-      m_deriv[[i]][which(x$M$labels == param_names[i])] <- 1
-    }
-
-    ## Analytic Jacobian
-    jac <- matrix(0, nrow = p_star_means, ncol = q)
-
-    for (i in indices_param) {
-      symm <- FB %*% A_deriv[[i]] %*% E %*% t(F_RAM)
-      jac[seq_len(p_star), i] <- lavaan::lav_matrix_vech(symm + t(symm) + FB %*% S_deriv[[i]] %*% t(FB))
-    }
-
-    if (ms) {
-      for (i in indices_param) {
-        jac[indices_p_star_p_means, i] <- FB %*% A_deriv[[i]] %*% B %*% m +
-          FB %*% m_deriv[[i]]
-      }
-    }
-
-  } else { # Numeric Jacobian matrix
-    jac <- OpenMx::omxManifestModelByParameterJacobian(model = x)
-  }
-
-  if (!ms) {jac <- jac[indices_p_star, , drop = FALSE]}
-
-
-
-  # Initial IPC regression --------
-  ## Individual deviations from the sample moments
-  data_obs_c <- scale(x = data_obs, center = TRUE, scale = FALSE)
-  mc <- matrix(data = apply(X = data_obs_c, MARGIN = 1,
-                            FUN = function (x) {lavaan::lav_matrix_vech(x %*% t(x))}),
-               nrow = n, ncol = p_star, byrow = TRUE)
-  vech_cov <- matrix(data = rep(x = lavaan::lav_matrix_vech(exp_cov), times = n),
-                     byrow = TRUE, nrow = n, ncol = p_star)
-  md <- mc - vech_cov
-  if (ms) {
-    means <- matrix(data = rep(x = exp_mean, times = n), byrow = TRUE,
-                    nrow = n, ncol = p)
-    mean_dev <- data_obs - means
-    md <- cbind(md, mean_dev)
-  }
-
-  ## Weight matrix V
-  V <- 0.5 * t(Dup) %*% kronecker(X = exp_cov_inv, Y = exp_cov_inv) %*% Dup
-  if (ms) {
-    V_m_cov <- matrix(data = 0, nrow = p_star_means, ncol = p_star_means)
-    V_m_cov[indices_p_star, indices_p_star] <- V
-    V_m_cov[indices_p_star_p_means, indices_p_star_p_means] <- exp_cov_inv
-    V <- V_m_cov
-  }
-
-  ## Initial IPCs
-  W <- solve(t(jac) %*% V %*% jac) %*% t(jac) %*% V
-  IPCs <- matrix(data = rep(x = param_estimates, times = n),
-                 byrow = TRUE, nrow = n, ncol = q) +
-    md %*% t(W)
-  IPCs <- as.data.frame(IPCs)
-  colnames(IPCs) <- param_names
-
-  ## Initial IPC regression
-  ipcr_data <- cbind(IPCs, covariates)
-  param_names_ipcr <- paste0("IPCs_", gsub("\\(|\\)", "", param_names))
-  IV <- paste(colnames(covariates), collapse = " + ")
-  colnames(ipcr_data)[seq_len(q)] <- param_names_ipcr
-  ipcr_list <- lapply(param_names_ipcr, FUN = function(x) {
-    do.call(what = "lm",
-            args = list(formula = paste(x, "~", IV), data = as.name("ipcr_data")))
-  })
-  names(ipcr_list) <- param_names
-
-
-
-  # Start iterated IPC regression --------
-  ## Storing objects for the updating procedure
-  it_est <- matrix(sapply(X = ipcr_list, FUN = function(x) {coef(x)}),
-                   nrow = 1, ncol = q * (k + 1))
-  it_se <- matrix(sapply(X = ipcr_list, FUN = function(x) {sqrt(diag(vcov(x)))}),
-                  nrow = 1, ncol = q * (k + 1))
-
-  ## Center moment deviations at the covariate
-  center_reg_list <- apply(X = data_obs, MARGIN = 2, FUN = function(y) {
-    stats::lm(y ~ covariates_matrix)})
-  data_centered <- data_obs -
-    sapply(X = center_reg_list, FUN = function(x) {x$fitted.values})
-  cent_md <- matrix(data = apply(X = data_centered, MARGIN = 1,
-                                 FUN = function(x) {lavaan::lav_matrix_vech(x %*% t(x))}),
-                    nrow = n, ncol = p_star, byrow = TRUE)
-  if (ms) {
-    cent_md <- cbind(cent_md, data_obs)
-  }
-
-  ## Calculate model fit
-  if (iteration_info) {
-    log_lik_individual <- rep(NA, times = n)
-    for (i in indices_n) {
-      param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
-      x <- OpenMx::omxSetParameters(model = x, labels = param_names,
-                                    values = param_estimates)
-      x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
-      data_individual <- t(data_obs[i, , drop = FALSE])
-      sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
-      sigma_inv_individual <- solve(sigma_individual)
-      if (ms) {
-        mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
-        log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
-          (data_individual - mu_individual) + log(det(sigma_individual))
-      }  else {
-        log_lik_individual[i] <- t(data_individual) %*% sigma_inv_individual %*%
-          data_individual + log(det(sigma_individual))
-      }
-    }
-    log_lik <- -0.5 * sum(log_lik_individual) + n * p * log(2 * pi)
-  }
-
-  ## Groups of observations with same covariate values in the covariate
-  group <- transform(covariates, group_ID = as.numeric(interaction(covariates, drop = TRUE)))$group_ID
-
-  ## Assign SEM parameters to the corresponding RAM matrices
-  RAM_params <- rep(NA, times = q)
-  RAM_params[which(param_names %in% x$A$labels)] <- "A"
-  RAM_params[which(param_names %in% x$S$labels)] <- "S"
-  RAM_params[which(param_names %in% x$M$labels)] <- "M"
-
-  ## Get coordinates of the parameters in the corresponding RAM matrices
-  RAM_coord <- list()
-  for (i in indices_param) {
-    if (RAM_params[i] == "A") {
-      RAM_coord[[i]] <- which(x$A$labels == param_names[i], arr.ind = TRUE)
-    }
-    if (RAM_params[i] == "S") {
-      RAM_coord[[i]] <- which(x$S$labels == param_names[i], arr.ind = TRUE)
-    }
-    if (RAM_params[i] == "M") {
-      RAM_coord[[i]] <- which(t(x$M$labels) == param_names[i], arr.ind = TRUE)
-    }
-  }
-
-
-
-  # Start the iteration process --------
-  nr_iterations <- 0
-  difference <- rep(x = conv + 1, times = NCOL(it_est))
-  updated_IPCs <- matrix(NA, nrow = n, ncol = q)
-  colnames(updated_IPCs) <- param_names
-  unique_groups <- unique(group)
-  cent_md_up <- cent_md
-
-  ## while loop
-  while(nr_iterations < max_it & isFALSE(all(abs(difference) < conv))) {
-
-    ### Try to update the IPCs of individuals and/or groups
-    updated_IPCs <- try(expr = {
-
-      for (i in unique_groups) { # Start loop with index i
-
-        ID_group <- which(group == i)
-        n_group <- length(ID_group)
-        IPC_pred <- covariates_design_matrix[group == i, , drop = FALSE][1, ]
-
-        # Update RAM matrices
-        for (j in indices_param){
-
-          param_estimates[j] <- sum(coef(ipcr_list[[j]]) * IPC_pred)
-
-          if (RAM_params[j] == "A") {
-            A[RAM_coord[[j]]] <- param_estimates[j]
-          }
-
-          if (RAM_params[j] == "S") {
-            S[RAM_coord[[j]]] <- param_estimates[j]
-          }
-
-          if (RAM_params[j] == "M") {
-            m[RAM_coord[[j]]] <- param_estimates[j]
-          }
-        } # end loop with index j: updating paramaters
-
-        # Update sample covariance
-        B <- solve(Ident - A)
-        FB <- F_RAM %*% B
-        E <- B %*% S %*% t(B)
-        exp_cov <- F_RAM %*% E %*% t(F_RAM)
-        exp_cov_inv <- solve(exp_cov)
-
-
-        # Update Jacobian matrix
-        if (linear_MxModel) { # Analytic Jacobian matrix
-
-          for (j in indices_param) {
-            symm <- FB %*% A_deriv[[j]] %*% E %*% t(F_RAM)
-            jac[indices_p_star, j] <- lavaan::lav_matrix_vech(symm + t(symm) + FB %*% S_deriv[[j]] %*% t(FB))
-          }
-
-          if (ms) {
-            for (j in indices_param) {
-              jac[indices_p_star_p_means, j] <- FB %*% A_deriv[[j]] %*% B %*% m +
-                FB %*% m_deriv[[j]]
-            }
-          }
-
-
-        } else { # Numeric Jacobian matrix
-          x <- OpenMx::omxSetParameters(model = x, labels = param_names,
-                                        values = param_estimates)
-          x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
-          jac <- OpenMx::omxManifestModelByParameterJacobian(model = x)
-        }
-
-        if (!ms) {
-          jac <- jac[indices_p_star, , drop = FALSE]
-        }
-
-        # Update weight matrix and W matrix
-        V <- 0.5 * t(Dup) %*% kronecker(X = exp_cov_inv, Y = exp_cov_inv) %*% Dup
-        if (ms) {
-          V_m_cov <- matrix(data = 0, nrow = p_star_means, ncol = p_star_means)
-          V_m_cov[indices_p_star, indices_p_star] <- V
-          V_m_cov[indices_p_star_p_means, indices_p_star_p_means] <- exp_cov_inv
-          V <- V_m_cov
-        }
-        W <- solve(t(jac) %*% V %*% jac) %*% t(jac) %*% V
-
-        # Update the centered contributions to the sample moments
-        cent_md_up[ID_group, indices_p_star] <- cent_md[ID_group, indices_p_star] -
-          matrix(rep(x = lavaan::lav_matrix_vech(exp_cov), times = n_group), byrow = TRUE,
-                 nrow = n_group, ncol = p_star)
-        if (ms) {
-          ### !!!! Orientation could be wrong
-          exp_means <- FB %*% m
-          means_matrix <- matrix(rep(x = exp_means, times = n), byrow = TRUE,
-                                 nrow = n, ncol = p)
-          means_dev <- data_obs - means_matrix
-          cent_md_up[ID_group, indices_p_star_p_means] <- means_dev[ID_group, ]
-        }
-        cent_md_up <- as.matrix(cent_md_up)
-
-        updated_IPCs[ID_group, ] <- cent_md_up[ID_group, ] %*% t(W) +
-          matrix(rep(x = param_estimates, times = n_group), byrow = TRUE,
-                 nrow = n_group, ncol = q)
-      } # end loop with index i: Find observations with identical covariates
-
-      updated_IPCs
-    }, # end expr of try()
-
-    outFile = stop("Iterated IPC regression aborted prematurely.\n", call. = FALSE)
-
-    )
-    # end try
-
-
-    # Estimate updated IPC regression parameter
-    ipcr_data <- cbind(updated_IPCs, covariates)
-    colnames(ipcr_data)[indices_param] <- param_names_ipcr
-    for (j in indices_param) {
-      ipcr_list[[j]] <- do.call(what = "lm",
-                                args = list(formula = paste(param_names_ipcr[j], "~", IV),
-                                            data = as.name("ipcr_data")))
-    }
-
-
-    ## Store results
-    it_est <- rbind(it_est, c(sapply(X = ipcr_list,
-                                     FUN = function(x) {coef(x)})))
-    it_se <- rbind(it_se, c(sapply(X = ipcr_list,
-                                   FUN = function(x) {sqrt(diag(vcov(x)))})))
-
-    ## Calculate model fit
-    if (iteration_info) {
-      for (i in indices_n) {
-        param_estimates <- sapply(X = ipcr_list, FUN = function(x) {sum(coef(x) * covariates_design_matrix[i, ])})
-        x <- OpenMx::omxSetParameters(model = x, labels = param_names,
-                                      values = param_estimates)
-        x <- suppressMessages(OpenMx::mxRun(model = x, useOptimizer = FALSE))
-        data_individual <- t(data_obs[i, , drop = FALSE])
-        sigma_individual <- OpenMx::mxGetExpected(model = x, component = "covariance")
-        sigma_inv_individual <- solve(sigma_individual)
-        if (ms) {
-          mu_individual <- t(OpenMx::mxGetExpected(model = x, component = "means"))
-          log_lik_individual[i] <- t(data_individual - mu_individual) %*% sigma_inv_individual %*%
-            (data_individual - mu_individual) + log(det(sigma_individual))
-        }  else {
-          log_lik_individual[i] <- t(data_individual) %*% sigma_inv_individual %*%
-            data_individual + log(det(sigma_individual))
-        }
-      }
-      log_lik <- c(log_lik, -0.5 * sum(log_lik_individual) + n * p * log(2 * pi))
-    }
-
-    # Covergence criteria
-    difference <- it_est[nrow(it_est), ] -
-      it_est[nrow(it_est) - 1, ]
-    nr_iterations <- nr_iterations + 1
-    cat("Iteration:", nr_iterations, "\n")
-
-  }
-
-
-
-  # Catch errors --------
-  if(nr_iterations == max_it & isFALSE(all(abs(difference) <= conv))) {
-    warning("The iterated IPC regression algorithm did not converge after ", max_it,
-            " iterations. Consider to increase the maximum number of iterations.",
-            call. = FALSE)
-    IPC$info$iterated_status <- paste("Iterated IPC regression reached the maximum number of", max_it, "iterations without converging.")
-  }
-
-  if(nr_iterations < max_it & isFALSE(all(abs(difference) > conv))) {
-    cat("Iterated IPC regression converged.")
-    IPC$info$iterated_status <- paste("Iterated IPC regression converged succesfully after", nr_iterations, "iterations.")
-    IPC$IPCs <- as.data.frame(updated_IPCs)
-    IPC$regression_list <- ipcr_list
-  }
-
-
-
-  # Prepare output --------
-  if(iteration_info) {IPC$iteration_matrix <- cbind(log_lik, it_est)}
-
-  IPC
-
-
-  class(IPC) <- "ipcr_it"
-
+  invisible(TRUE)
+}
+
+#' @noRd
+#' @export
+ipcr_it.default <- function(
+    x, predictors, analytic = TRUE, conv = 0.01,
+    learning_rate = c(1, 0.5, 0.1), max_it = 350L,
+    iteration_info = FALSE, variance_parameterization = "original") {
+  validate_original_variance_parameterization_ipcr(
+    variance_parameterization,
+    "this model backend"
+  )
+  stop(
+    "Iterated IPCR is currently implemented only for lavaan and OpenMx MxModel objects.",
+    call. = FALSE
+  )
 }

@@ -1,44 +1,37 @@
-#' @export
-setOldClass("ipcr")
+# Accessor methods delegate to the second-stage regression stored in an ipcr
+# object. ipcr objects are S3 lists, so these must be S3 methods as well.
+
+#' @exportS3Method stats::coef
+coef.ipcr <- function(object, ...) {
+  stats::coef(object$mlm, ...)
+}
 
 #' @export
-setMethod(f = "coef", signature = signature(object = "ipcr"),
-          definition = function(object, ...) {
-            coef(object$mlm, ...)
-          })
+coefficients.ipcr <- function(object, ...) {
+  stats::coefficients(object$mlm, ...)
+}
+
+#' @exportS3Method stats::fitted
+fitted.ipcr <- function(object, ...) {
+  stats::fitted(object$mlm, ...)
+}
 
 #' @export
-setMethod(f = "coefficients", signature = signature(object = "ipcr"),
-          definition = function(object, ...) {
-            coefficients(object$mlm, ...)
-          })
+nobs.ipcr <- function(object, ...) {
+  stats::nobs(object$mlm, ...)
+}
 
 #' @export
-setMethod(f = "fitted", signature = signature(object = "ipcr"),
-          definition = function(object, ...) {
-            fitted(object$mlm, ...)
-          })
+predict.ipcr <- function(object, ...) {
+  stats::predict(object$mlm, ...)
+}
 
 #' @export
-setMethod(f = "nobs", signature = signature(object = "ipcr"),
-          definition = function(object, ...) {
-            nobs(object$mlm, ...)
-          })
+residuals.ipcr <- function(object, ...) {
+  stats::residuals(object$mlm, ...)
+}
 
 #' @export
-setMethod(f = "predict", signature = signature(object = "ipcr"),
-          definition = function(object, ...) {
-            predict(object$mlm, ...)
-          })
-
-#' @export
-setMethod(f = "residuals", signature = signature(object = "ipcr"),
-          definition = function(object, ...) {
-            residuals(object$mlm, ...)
-          })
-
-#' @export
-setMethod(f = "sigma", signature = signature(object = "ipcr"),
-          definition = function(object, ...) {
-            sigma(object$mlm, ...)
-          })
+sigma.ipcr <- function(object, ...) {
+  stats::sigma(object$mlm, ...)
+}

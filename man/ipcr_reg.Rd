@@ -2,33 +2,117 @@
 % Please edit documentation in R/ipcr_reg.R
 \name{ipcr_reg}
 \alias{ipcr_reg}
-\title{Add together two numbers}
+\title{Regularized Individual Parameter Contribution Regression}
 \usage{
 ipcr_reg(
-  fit,
-  covariates = NULL,
-  iterate = FALSE,
-  iteration_info = FALSE,
-  conv = 1e-04,
-  max_it = 50,
-  regularization = FALSE,
-  s = "lambda.min",
-  alpha = 1,
-  weights = NULL,
-  nlambda = 100,
+  x,
+  alpha = 0.5,
+  s = "lambda.1se",
+  nfolds = 10L,
+  foldid = NULL,
   standardize = TRUE,
-  nfolds = 10,
-  linear_MxModel = TRUE
+  standardize_response = TRUE,
+  ...
 )
 }
 \arguments{
-\item{x}{A number.}
+\item{x}{An object inheriting from class \code{"ipcr"}, including an
+\code{"ipcr_it"} result.}
 
-\item{y}{A number.}
+\item{alpha}{A single number in \verb{[0, 1]} controlling the elastic-net
+mixture. The default, \code{0.5}, balances the sparsity of the group lasso with
+ridge stabilization for correlated predictors. \code{alpha = 1} is group
+lasso and \code{alpha = 0} is group ridge regression.}
+
+\item{s}{A single selection rule or penalty value passed to the coefficient
+and prediction methods for the cross-validated \code{glmnet} fit. Supported
+character values are \code{"lambda.1se"} (default) and \code{"lambda.min"}; a
+positive numeric lambda is also accepted.}
+
+\item{nfolds}{A whole number of cross-validation folds. The default is 10.
+If fewer than 10 complete IPC rows are available, the number is reduced
+to the number of available rows with a warning.}
+
+\item{foldid}{Optional vector assigning each complete IPC row to a
+cross-validation fold. At least three folds are required. If omitted, a
+balanced random assignment is generated and stored in the result.}
+
+\item{standardize}{Logical; whether \code{glmnet} should standardize predictor
+design columns. The default is \code{TRUE}.}
+
+\item{standardize_response}{Logical; whether multiple IPC response columns
+should be standardized before fitting. The default is \code{TRUE}, which keeps
+parameters measured on different scales from dominating the joint loss.
+This argument is ignored when there is only one IPC parameter.}
+
+\item{...}{Additional named arguments passed to \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}}. The
+arguments controlled explicitly by \code{ipcr_reg()} cannot be supplied here.}
 }
 \value{
-A number.
+An object whose class begins with \code{"ipcr_reg"} and which otherwise
+retains the input object's classes and components. The additional
+\code{regularization} component contains the \code{cv.glmnet} fit, selected lambda,
+coefficient matrix, selected predictor contrasts and terms, standardized
+predictor importance, fold assignments, and design-column metadata.
 }
 \description{
-Add together two numbers
+Applies a cross-validated multivariate group elastic net to the IPCs and
+predictor design matrix stored in an existing \code{\link[=ipcr]{ipcr()}} or \code{\link[=ipcr_it]{ipcr_it()}}
+result. Regularization is confined to the second-stage IPC regression;
+scores and IPCs are not recomputed.
+}
+\details{
+With two or more IPC parameters, \code{ipcr_reg()} uses
+\code{family = "mgaussian"}. The coefficient vector for each predictor design
+column is penalized jointly across all IPC responses, so that column is
+selected for or excluded from the second-stage IPC regression as a whole.
+With one IPC parameter, the function uses \code{family = "gaussian"}. At least
+two non-intercept predictor design columns are required because \code{glmnet}
+does not fit a one-column design matrix.
+
+Factors are represented by the same design-matrix contrasts used by the
+original IPC regression. Each contrast is penalized separately. The result
+records both contrast-level selections and their originating predictor
+terms; consequently, selection for a factor with more than two levels can
+depend on its contrast coding and reference level.
+
+The selected coefficients are intended for prediction and exploratory
+variable selection. Ordinary standard errors, confidence intervals, and
+p-values are not available for the regularized fit. Cross-validation
+assesses the second-stage prediction of the already-computed IPCs; it does
+not refit or cross-validate the first-stage statistical model.
+
+\code{ipcr_it()} returns an ordinary result only after convergence. For safety,
+\code{ipcr_reg()} also rejects legacy or manually constructed iterated results
+whose convergence status is not \code{TRUE}.
+}
+\section{Methods}{
+
+\code{coef()} and \code{coefficients()} return the regularized coefficient matrix.
+\code{predict()} returns predicted IPCs, optionally for \code{newdata}; \code{fitted()}
+returns predictions for the analyzed rows, \code{residuals()} returns the
+corresponding IPC residuals, and \code{nobs()} returns the number of analyzed
+rows. Because \code{glmnet} does not provide ordinary second-stage sampling
+covariance estimates, \code{confint()}, \code{vcov()}, \code{effects()}, and \code{sigma()} are
+deliberately unavailable for regularized IPCR results.
+}
+
+\examples{
+set.seed(1)
+n <- 80L
+predictors <- data.frame(
+  group = rep(0:1, each = n / 2),
+  age = rnorm(n),
+  noise = rnorm(n)
+)
+x <- rnorm(n)
+y <- 1 + x + 0.4 * predictors$group * x + rnorm(n)
+fit <- lm(y ~ x)
+standard <- ipcr(fit, predictors)
+regularized <- ipcr_reg(standard, nfolds = 5)
+summary(regularized)
+
+}
+\seealso{
+\code{\link[=ipcr]{ipcr()}}, \code{\link[=ipcr_it]{ipcr_it()}}, \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}}
 }

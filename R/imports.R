@@ -1,6 +1,4 @@
-#' @importFrom lmtest coefci coeftest
-#' @importFrom stats AIC BIC coef confint effects fitted logLik nobs predict residuals sigma vcov
-#' @importFrom sandwich bread estfun
+#' @importFrom stats coef coefficients confint effects fitted nobs predict residuals sigma vcov
 #' @importClassesFrom lavaan lavaan
 #' @importMethodsFrom lavaan fitted coef
 NULL

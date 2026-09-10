@@ -1,0 +1,457 @@
+---
+title: "Findings: Simulation 1"
+format:
+  html:
+    toc: true
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r}
+#| label: setup
+
+results_dir <- dirname(normalizePath(knitr::current_input(dir = TRUE)))
+
+openmx_lgcm_mgsem_mc <- readRDS(file.path(
+  results_dir,
+  "openmx-lgcm-mgsem-n250-results.rds"
+))
+openmx_lgcm_predictor_type_mc <- readRDS(file.path(
+  results_dir,
+  "openmx-lgcm-predictor-type-n250-results.rds"
+))
+lavaan_ar_panel_mgsem_mc <- readRDS(file.path(
+  results_dir,
+  "lavaan-ar-panel-mgsem-n250-results.rds"
+))
+lavaan_ar_panel_predictor_type_mc <- readRDS(file.path(
+  results_dir,
+  "lavaan-ar-panel-predictor-type-n250-results.rds"
+))
+
+method_order <- c("standard", "iterated", "MGSEM")
+condition_order <- c(
+  "dummy_only",
+  "informative_dummy",
+  "informative_continuous"
+)
+
+format_condition <- function(x) {
+  labels <- c(
+    dummy_only = "Dummy only",
+    informative_dummy = "Informative dummy",
+    informative_continuous = "Informative continuous"
+  )
+  unname(labels[x])
+}
+
+summarize_parameter_effect <- function(result, parameter, predictor) {
+  selected <- result$summary[
+    result$summary$parameter == parameter &
+      result$summary$predictor == predictor,
+    ,
+    drop = FALSE
+  ]
+  selected <- selected[
+    order(
+      match(selected$condition, condition_order),
+      match(selected$method, method_order)
+    ),
+    ,
+    drop = FALSE
+  ]
+  output_columns <- c(
+    "method", "target", "mean_estimate", "bias", "empirical_sd",
+    "mean_standard_error", "rmse", "coverage_95", "rejection_rate_05",
+    "successful_replications"
+  )
+  output_names <- c(
+    "Method", "Target", "Mean estimate", "Bias", "Empirical SD",
+    "Mean standard error", "RMSE", "Coverage", "Rejection rate",
+    "Successful replications"
+  )
+  if (length(unique(selected$condition)) > 1L) {
+    output_columns <- c("condition", output_columns)
+    output_names <- c("Condition", output_names)
+  }
+  output <- selected[, output_columns, drop = FALSE]
+  names(output) <- output_names
+  if ("Condition" %in% names(output)) {
+    output$Condition <- format_condition(output$Condition)
+  }
+  row.names(output) <- NULL
+  output
+}
+
+summarize_effects <- function(result, predictor) {
+  selected <- result$summary[result$summary$predictor == predictor, ]
+  methods <- method_order[method_order %in% unique(selected$method)]
+  output <- do.call(rbind, lapply(methods, function(method) {
+    rows <- selected[selected$method == method, ]
+    data.frame(
+      Method = method,
+      `Mean absolute bias` = mean(abs(rows$bias)),
+      `Maximum absolute bias` = max(abs(rows$bias)),
+      `Mean RMSE` = mean(rows$rmse),
+      `Mean coverage` = mean(rows$coverage_95),
+      `Minimum coverage` = min(rows$coverage_95),
+      `Maximum coverage` = max(rows$coverage_95),
+      check.names = FALSE
+    )
+  }))
+  row.names(output) <- NULL
+  output
+}
+
+summarize_effects_by_condition <- function(result, predictor) {
+  selected <- result$summary[result$summary$predictor == predictor, ]
+  conditions <- condition_order[
+    condition_order %in% unique(selected$condition)
+  ]
+  output <- do.call(rbind, lapply(conditions, function(condition) {
+    rows_condition <- selected[selected$condition == condition, ]
+    methods <- method_order[method_order %in% unique(rows_condition$method)]
+    do.call(rbind, lapply(methods, function(method) {
+      rows <- rows_condition[rows_condition$method == method, ]
+      data.frame(
+        Condition = format_condition(condition),
+        Method = method,
+        `Mean absolute bias` = mean(abs(rows$bias)),
+        `Maximum absolute bias` = max(abs(rows$bias)),
+        `Mean RMSE` = mean(rows$rmse),
+        `Mean coverage` = mean(rows$coverage_95),
+        `Minimum coverage` = min(rows$coverage_95),
+        `Maximum coverage` = max(rows$coverage_95),
+        check.names = FALSE
+      )
+    }))
+  }))
+  row.names(output) <- NULL
+  output
+}
+
+format_tests <- function(result) {
+  output <- result$test_summary[, c(
+    "condition", "method", "test", "rejection_rate_05",
+    "successful_replications"
+  )]
+  output <- output[
+    order(
+      output$condition,
+      match(output$method, method_order),
+      output$test
+    ),
+    ,
+    drop = FALSE
+  ]
+  names(output) <- c(
+    "Condition", "Method", "Test", "Rejection rate",
+    "Successful replications"
+  )
+  row.names(output) <- NULL
+  output
+}
+
+format_iterated_diagnostics <- function(result) {
+  output <- result$diagnostic_summary[
+    result$diagnostic_summary$method == "iterated",
+    c(
+      "condition", "successful_replications",
+      "ipcr_it_nonconvergence_replications", "convergence_rate",
+      "mean_iterations", "mean_learning_rate_attempts",
+      "mean_selected_learning_rate", "mean_elapsed_seconds"
+    ),
+    drop = FALSE
+  ]
+  names(output) <- c(
+    "Condition", "Converged", "Nonconvergence errors",
+    "Convergence rate", "Mean iterations", "Mean attempts",
+    "Mean selected learning rate", "Mean seconds"
+  )
+  row.names(output) <- NULL
+  output
+}
+```
+
+## Overview
+
+Simulation 1 used a total sample size of 250 and 1,000 replications per
+condition. Standard IPCR was compared with iterated IPCR using analytical
+iteration. The binary-predictor designs additionally included an oracle
+multi-group SEM (MGSEM). Two model types were studied: an OpenMx latent growth
+curve model (LGCM) and a lavaan discrete-time autoregressive panel model.
+
+The current implementation returns an iterated-IPCR result only after
+convergence. Therefore, all estimates, confidence intervals, and tests reported
+below use only converged iterated analyses. Nonconverged trials are retained as
+diagnostic errors, but cannot enter the inferential summaries.
+
+## OpenMx LGCM: IPCR versus MGSEM
+
+The two balanced groups differed only in manifest residual variance. The true
+group difference was 0.2; all other LGCM parameters were homogeneous. The
+oracle MGSEM estimated only the residual variance separately between groups.
+
+The results were very good:
+
+- All three methods completed all 1,000 replications without failures or fit
+  warnings. Iterated IPCR always converged with learning rate 1 and required
+  1.83 iterations on average.
+- Standard and iterated IPCR produced essentially identical residual-variance
+  effects: mean 0.19942, bias -0.00058, RMSE 0.05422, 94.1% coverage, and
+  97.5% rejection of the null hypothesis.
+- MGSEM was modestly more efficient. Its mean effect was 0.20065, RMSE was
+  0.04769, coverage was 95.3%, and the parameter-level rejection rate was
+  99.2%.
+- For the five truly homogeneous IPCR effects, the average Type I error rate
+  was 5.08%, with a range from 3.8% to 6.3%; mean coverage was 94.9%.
+- The global heterogeneity test rejected in 92.1% of replications for both
+  IPCR methods and 99.3% for MGSEM. The multivariate IPCR test pays a power
+  penalty here because it tests all LGCM parameters jointly, whereas only the
+  residual variance was heterogeneous.
+- Mean analysis time was approximately 0.017 seconds for standard IPCR, 0.300
+  seconds for iterated IPCR, and 0.190 seconds for MGSEM.
+
+```{r}
+#| label: openmx-lgcm-effect-table
+#| tbl-cap: "Residual-variance group effect in the OpenMx LGCM."
+
+knitr::kable(
+  summarize_parameter_effect(
+    openmx_lgcm_mgsem_mc,
+    parameter = "residual",
+    predictor = "group"
+  ),
+  digits = 4
+)
+```
+
+```{r}
+#| label: openmx-lgcm-test-table
+#| tbl-cap: "Global and parameter-specific tests in the OpenMx LGCM."
+
+knitr::kable(format_tests(openmx_lgcm_mgsem_mc), digits = 3)
+```
+
+Iteration neither improved nor harmed this simple binary-predictor result. Both
+IPCR variants recovered the true difference accurately, with performance close
+to the correctly specified MGSEM.
+
+## OpenMx LGCM: predictor type and noise
+
+The informative predictor was either a balanced dummy or a uniform continuous
+variable. It produced a residual-variance effect of 0.2. Each model also
+included an independent dummy and uniform noise predictor.
+
+- Standard IPCR completed all replications. Iterated IPCR converged in 958 of
+  1,000 dummy-predictor replications and 940 of 1,000 continuous-predictor
+  replications. The remaining 42 and 60 analyses raised the intended hard
+  nonconvergence error and contributed no estimates or tests.
+- Learning rate 1 converged in 956 dummy and 934 continuous cases. Learning
+  rate 0.5 rescued two dummy and four continuous cases; learning rate 0.1
+  rescued two further continuous cases. The remaining failures involved
+  inadmissible variance predictions or non-positive-definite covariance
+  matrices rather than exhausted iteration counts.
+- The informative residual effect was estimated accurately. With the dummy
+  predictor, its mean was 0.20101 for standard IPCR and 0.20019 for converged
+  iterated IPCR; coverage was 94.8% for both. With the continuous predictor,
+  the means were 0.19913 and 0.19833 and coverage was 94.2% and 94.1%.
+- Parameter-specific power for the residual effect was 97.5% versus 97.4% in
+  the dummy condition and 61.9% versus 61.6% in the continuous condition for
+  standard and iterated IPCR, respectively.
+- Global power for the informative predictor was 92.7% versus 92.2% in the
+  dummy condition and 39.1% versus 39.3% in the continuous condition.
+- The global noise-predictor tests were well calibrated. Across conditions and
+  methods, rejection rates ranged from 3.1% to 4.9% for the uniform noise
+  predictor and from 3.9% to 4.9% for the dummy noise predictor.
+- Among null parameter-specific coefficients, average rejection rates were
+  between 4.7% and 5.1%. The lowest coverage was 92.6% for one coefficient in
+  the continuous iterated condition, but average coverage in every condition
+  remained between 94.9% and 95.3%.
+- Successful iterated analyses averaged roughly 0.52 seconds, compared with
+  approximately 0.02 seconds for standard IPCR.
+
+```{r}
+#| label: openmx-lgcm-predictor-effect-table
+#| tbl-cap: "Informative residual-variance effect in the OpenMx predictor-type design."
+
+knitr::kable(
+  summarize_parameter_effect(
+    openmx_lgcm_predictor_type_mc,
+    parameter = "residual",
+    predictor = "informative"
+  ),
+  digits = 4
+)
+```
+
+```{r}
+#| label: openmx-lgcm-predictor-diagnostics
+#| tbl-cap: "Convergence diagnostics for iterated IPCR in the OpenMx predictor-type design."
+
+knitr::kable(
+  format_iterated_diagnostics(openmx_lgcm_predictor_type_mc),
+  digits = 4
+)
+```
+
+```{r}
+#| label: openmx-lgcm-predictor-tests
+#| tbl-cap: "Global predictor tests in the OpenMx predictor-type design."
+
+knitr::kable(format_tests(openmx_lgcm_predictor_type_mc), digits = 3)
+```
+
+The converged iterated results closely matched standard IPCR. The remaining
+limitation is algorithmic nonconvergence in approximately 4% to 6% of these
+more demanding trials; the hard-error policy successfully prevented those
+trials from entering coverage and rejection-rate calculations. The failures
+were not completely random: standard IPCR estimated the informative residual
+effect somewhat higher in failed than in converged trials. The iterated results
+must therefore be interpreted as conditional on convergence, not as results
+from all generated samples.
+
+## Lavaan autoregressive panel model: IPCR versus MGSEM
+
+This design used a balanced group dummy as the only IPC predictor. Ten model
+parameters differed between groups. The IPCR Pillai test was compared with the
+joint ten-parameter MGSEM likelihood-ratio test.
+
+- All methods completed all 1,000 replications without failures or warnings.
+  Iterated IPCR always converged with learning rate 1 and required 3.01
+  iterations on average.
+- Iterated IPCR and MGSEM were nearly identical. Across the ten group effects,
+  mean absolute bias was 0.00816 for iterated IPCR and 0.00787 for MGSEM. The
+  largest difference between their mean estimates was only 0.00129.
+- Standard IPCR also performed well, but its mean absolute bias was higher at
+  0.01509. Iteration notably reduced bias for several transition and innovation
+  parameters.
+- Mean RMSE was effectively the same for all methods: 0.12086 for iterated
+  IPCR, 0.12090 for MGSEM, and 0.12111 for standard IPCR.
+- Coverage across the ten group effects ranged from 93.7% to 95.7% for
+  iterated IPCR, 93.6% to 96.0% for MGSEM, and 94.0% to 97.4% for standard
+  IPCR.
+- All three global heterogeneity tests had 100% power. Heterogeneity in this
+  design was too strong to distinguish the methods by global power.
+- Mean analysis time was approximately 0.028 seconds for standard IPCR, 1.69
+  seconds for iterated IPCR, and 0.285 seconds for MGSEM.
+
+```{r}
+#| label: lavaan-panel-mgsem-effect-table
+#| tbl-cap: "Aggregate performance for the ten group effects in the lavaan panel model."
+
+knitr::kable(
+  summarize_effects(lavaan_ar_panel_mgsem_mc, "group"),
+  digits = 4
+)
+```
+
+```{r}
+#| label: lavaan-panel-mgsem-test-table
+#| tbl-cap: "Global heterogeneity tests in the lavaan panel model."
+
+knitr::kable(format_tests(lavaan_ar_panel_mgsem_mc), digits = 3)
+```
+
+This design supports the expected equivalence between iterated IPCR and the
+corresponding oracle MGSEM for a binary predictor. Iteration reduced bias
+relative to standard IPCR without materially changing RMSE.
+
+## Lavaan autoregressive panel model: predictor type and noise
+
+The informative predictor was either a dummy or a uniform continuous variable.
+Both conditions additionally included an independent dummy and uniform noise
+predictor.
+
+- Standard IPCR completed all trials. Iterated IPCR converged in 990 of 1,000
+  dummy-predictor replications and 984 of 1,000 continuous-predictor
+  replications. The other 10 and 16 trials raised hard nonconvergence errors
+  because the iteration entered a non-positive-definite covariance region.
+- Learning rate 1 converged in 989 dummy cases and all 984 successful
+  continuous cases. Learning rate 0.1 rescued one additional dummy case; no
+  other reduced-rate attempt converged.
+- Across the ten informative effects, mean absolute bias in the dummy condition
+  was 0.01148 for standard IPCR and 0.00574 for iterated IPCR. In the
+  continuous condition it was 0.00617 and 0.00535. Mean RMSE was very similar:
+  0.12332 versus 0.12308 for the dummy and 0.20875 versus 0.20621 for the
+  continuous predictor.
+- Mean coverage across informative effects was 95.3% for standard and 94.0%
+  for iterated IPCR in the dummy condition, and 94.6% and 94.5% in the
+  continuous condition. Minimum iterated coverage was about 93.1% to 93.3%.
+- Both methods had 100% power for the global informative-predictor test in both
+  conditions.
+- Global tests of the dummy noise predictor were well calibrated: rejection
+  rates were 3.9% to 4.1% for standard IPCR and 4.5% to 4.8% for iterated
+  IPCR. The uniform noise test remained mildly liberal for iterated IPCR, with
+  rejection rates of 6.4% in the dummy condition and 6.6% in the continuous
+  condition, compared with 4.7% and 5.0% for standard IPCR.
+- Successful iterated analyses required approximately 4.1 to 4.3 iterations
+  and 2.25 to 2.40 seconds on average. Standard IPCR required approximately
+  0.03 seconds.
+
+One nominally converged dummy-predictor trial warrants special attention. It
+converged at learning rate 0.1 according to the primary criterion
+(`C_SE = 0.0092`), but its per-observation likelihood change was `C_l = 0.5801`,
+whereas the next-largest value among successful analyses was only 0.00025. Its
+standard errors were implausibly small and both noise tests rejected strongly.
+Excluding this single trial changes the reported aggregate results by at most
+about 0.1 percentage point, so it does not explain the overall findings. It
+does show that `C_l` can identify a rare pathological trajectory that `C_SE`
+alone accepts. The subsequently added warning rule, `C_l / learning_rate >
+0.001`, flags this trial and no other returned trial in the four simulations.
+The nonconverged trials also tended to be more difficult samples, particularly
+in the continuous condition, so these iterated summaries are again conditional
+on convergence.
+
+```{r}
+#| label: lavaan-panel-predictor-effect-table
+#| tbl-cap: "Aggregate performance for informative effects in the lavaan predictor-type design."
+
+knitr::kable(
+  summarize_effects_by_condition(
+    lavaan_ar_panel_predictor_type_mc,
+    "informative"
+  ),
+  digits = 4
+)
+```
+
+```{r}
+#| label: lavaan-panel-predictor-diagnostics
+#| tbl-cap: "Convergence diagnostics for iterated IPCR in the lavaan predictor-type design."
+
+knitr::kable(
+  format_iterated_diagnostics(lavaan_ar_panel_predictor_type_mc),
+  digits = 4
+)
+```
+
+```{r}
+#| label: lavaan-panel-predictor-test-table
+#| tbl-cap: "Global predictor tests in the lavaan predictor-type design."
+
+knitr::kable(
+  format_tests(lavaan_ar_panel_predictor_type_mc),
+  digits = 3
+)
+```
+
+## Overall conclusion
+
+The four result files are internally consistent: all scheduled replications
+were attempted, failure counts reconcile with method-specific denominators,
+and only converged iterated analyses contributed estimates and tests. They
+provide a useful benchmark for version 0.4. Standard IPCR was stable and
+generally well calibrated. Iterated IPCR matched the oracle MGSEM especially
+closely in the panel model and reduced some standard-IPCR bias, while offering
+little change in the simpler LGCM.
+
+When iterated IPCR converged, estimation and inference were mostly satisfactory.
+The remaining concerns are its higher computational cost, nonconvergence in a
+minority of the predictor-type trials, a modest Type I error inflation for the
+continuous-noise global test in the lavaan panel model, and the single lavaan
+`C_l` outlier described above. The hard-error policy is important: it cleanly
+excludes nonconverged trajectories rather than allowing unreliable fallback
+estimates into the reported summaries.

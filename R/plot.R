@@ -9,55 +9,119 @@
 #' @param ... Additional arguments (currently unused).
 #'
 #' @details This function is a wrapper for \code{\link[ggplot2]{ggplot}}.
-#' Currently, arguments passed to \code{ggplot} cannot be modified.
+#' Factor and logical predictors are represented by the columns of the design
+#' matrix used for the IPC regression. Correlations involving a constant IPC or
+#' predictor column are undefined and are displayed in grey.
+#'
+#' @return A \code{ggplot} object.
 #'
 #' @export
 
 plot.ipcr <- function(x, print_corr = FALSE, ...) {
-
-  # Re-code characters and factors into dummy variables
-  predictors <- x$mlm$model[, -1]
-  if (any(unlist(lapply(predictors, function(x) {is.character(x) | is.factor(x)})))) {
-    predictors_strings <- Filter(function(x) {is.character(x) | is.factor(x)}, predictors)
-    string_formula <- paste(colnames(predictors_strings), collapse = "+")
-    dummies <- stats::model.matrix(stats::formula(paste("~", string_formula)), data = predictors_strings)[, -1]
-    predictors <- predictors[, !unlist(lapply(predictors, function(x) {is.character(x) | is.factor(x)}))]
-    predictors <- cbind(predictors, dummies)
+  if (!is.logical(print_corr) || length(print_corr) != 1L || is.na(print_corr)) {
+    stop("'print_corr' must be either TRUE or FALSE.", call. = FALSE)
   }
 
-  # Correlation matrix
-  COR <- stats::cor(x = x$IPCs, y = predictors)
+  # Use the exact complete-case sample and factor coding from the IPC
+  # regression. The intercept is not a predictor and is removed.
+  analysis_IPCs <- normalize_ipcr_response_matrix(
+    stats::model.response(stats::model.frame(x$mlm)),
+    parameters = x$info$parameters
+  )
+  predictors <- stats::model.matrix(x$mlm)
+  predictors <- predictors[, colnames(predictors) != "(Intercept)", drop = FALSE]
+
+  ipc_standard_deviations <- apply(analysis_IPCs, 2L, stats::sd)
+  predictor_standard_deviations <- apply(predictors, 2L, stats::sd)
+  valid_ipcs <- is.finite(ipc_standard_deviations) &
+    ipc_standard_deviations > 0
+  valid_predictors <- is.finite(predictor_standard_deviations) &
+    predictor_standard_deviations > 0
+
+  if (any(!valid_ipcs) || any(!valid_predictors)) {
+    undefined_columns <- c(
+      if (any(!valid_ipcs)) {
+        paste0(
+          "IPC parameters: ",
+          paste(colnames(analysis_IPCs)[!valid_ipcs], collapse = ", ")
+        )
+      },
+      if (any(!valid_predictors)) {
+        paste0(
+          "predictor columns: ",
+          paste(colnames(predictors)[!valid_predictors], collapse = ", ")
+        )
+      }
+    )
+    warning(
+      "Correlations are undefined for constant columns (",
+      paste(undefined_columns, collapse = "; "),
+      "). Undefined heatmap cells are shown in grey.",
+      call. = FALSE
+    )
+  }
+
+  COR <- matrix(
+    NA_real_,
+    nrow = ncol(analysis_IPCs),
+    ncol = ncol(predictors),
+    dimnames = list(colnames(analysis_IPCs), colnames(predictors))
+  )
+  if (any(valid_ipcs) && any(valid_predictors)) {
+    COR[valid_ipcs, valid_predictors] <- stats::cor(
+      x = analysis_IPCs[, valid_ipcs, drop = FALSE],
+      y = predictors[, valid_predictors, drop = FALSE]
+    )
+  }
 
   # Transform data into long format
-  p <- nrow(COR)
-  q <- ncol(COR)
-
-
-  long_data <- data.frame(parameter = rep(x$info$parameters, times = q),
-                          covariate = rep(x$info$predictors, each = p),
-                          value = c(COR))
+  number_parameters <- nrow(COR)
+  number_predictors <- ncol(COR)
+  long_data <- data.frame(
+    parameter = rep(rownames(COR), times = number_predictors),
+    predictor = rep(colnames(COR), each = number_parameters),
+    value = c(COR)
+  )
 
   # Heatmap
-  res <- ggplot2::ggplot(data = long_data,
-                         ggplot2::aes(x = long_data[, 2],
-                                      y = long_data[, 1],
-                                      fill = long_data[, 3])) +
+  res <- ggplot2::ggplot(
+    data = long_data,
+    ggplot2::aes(x = predictor, y = parameter, fill = value)
+  ) +
     ggplot2::geom_tile(color = "white") +
     ggplot2::scale_fill_gradient2(low = "blue", high = "red", mid = "white",
                                   midpoint = 0, limit = c(-1, 1), space = "Lab",
-                                  name = "Corr.") +
+                                  name = "Corr.", na.value = "grey80") +
     ggplot2::labs(x = "Predictors", y = "Parameters") +
     ggplot2::theme_bw() +
-    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, vjust = 1, size = 12,
-                                                       hjust = 1)) +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(
+        angle = 45,
+        vjust = 1,
+        size = 12,
+        hjust = 1
+      )
+    ) +
     ggplot2::coord_fixed()
 
   if (print_corr) {
-    res +
-      ggplot2::geom_text(ggplot2:: aes(x = long_data[, 2], y =  long_data[, 1],
-                                       label = round(long_data[, 3], digits = 2)),
-                         color = "black")
-  } else {
-    res
+    res <- res + ggplot2::geom_text(
+      ggplot2::aes(label = round(value, digits = 2)),
+      color = "black"
+    )
   }
+
+  res
+}
+
+normalize_ipcr_response_matrix <- function(response, parameters) {
+  response <- as.matrix(response)
+  if (ncol(response) != length(parameters)) {
+    stop(
+      "Unable to align the stored IPC responses with the model parameters.",
+      call. = FALSE
+    )
+  }
+  colnames(response) <- parameters
+  response
 }

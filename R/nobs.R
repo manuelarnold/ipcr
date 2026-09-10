@@ -1,7 +1,4 @@
-nobs.MxRAMModel <- function(object, ...) {
-  object$data$numObs
-}
-
+#' @export
 nobs.MxModel <- function(object, ...) {
-  object$data$numObs
+  as.integer(NROW(openmx_raw_data_ipcr(object)))
 }

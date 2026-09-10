@@ -14,11 +14,16 @@ displayed on the heatmap. Default is \code{FALSE}.}
 
 \item{...}{Additional arguments (currently unused).}
 }
+\value{
+A \code{ggplot} object.
+}
 \description{
 Generates a heatmap visualizing the correlations between
 predictors and individual parameter contributions (IPCs).
 }
 \details{
 This function is a wrapper for \code{\link[ggplot2]{ggplot}}.
-Currently, arguments passed to \code{ggplot} cannot be modified.
+Factor and logical predictors are represented by the columns of the design
+matrix used for the IPC regression. Correlations involving a constant IPC or
+predictor column are undefined and are displayed in grey.
 }

@@ -12,39 +12,50 @@ plot_differences(
 )
 }
 \arguments{
-\item{x}{An object of class \code{"ipcr"}.}
+\item{x}{A standard or iterated object inheriting from class \code{"ipcr"}.
+Regularized \code{"ipcr_reg"} objects are not supported because ordinary
+coefficient confidence intervals are unavailable.}
 
-\item{parameter}{A character string specifying the name of a model parameter
-as displayed by \code{print}. By default, all model parameters are plotted.}
+\item{parameter}{A character vector specifying model-parameter names as
+displayed by \code{print}. By default, all model parameters are plotted.}
 
-\item{predictor}{A character string specifying the name of a predictor.
-By default, the effects of all predictors are plotted.}
+\item{predictor}{A character vector specifying original predictor names. By
+default, the effects of all predictors are plotted.}
 
-\item{confidence_level}{A numeric value indicating the confidence level
-for the confidence intervals. The default is \code{0.95}, corresponding
-to a 95 percent confidence interval.}
+\item{confidence_level}{A single numeric value strictly between zero and one
+indicating the confidence level. The default is \code{0.95}.}
+}
+\value{
+If exactly one parameter-predictor combination is requested, a
+\code{ggplot} object. Otherwise, a named list of \code{ggplot} objects.
 }
 \description{
-Generates plots of estimated model parameters as a function of
-one or more predictors.
+Generates plots of estimated model parameters as a function of one or more
+predictors.
 }
 \details{
-The function plots regression lines for continuous predictors and group means for
-dummy variables. Confidence intervals are included based on the model parameter
-estimates and their corresponding variances and covariances. The plots visualize
-the estimated parameter values as a function of a predictor, assuming all other
-predictors are set to zero. Mean-centering predictors may improve interpretability.
-This function is a wrapper for \code{\link[ggplot2]{ggplot}}.
+Continuous predictors are shown with a fitted regression line and a
+confidence band. Factors, logical predictors, and numeric predictors coded
+with exactly the values zero and one are shown using estimated group values.
+Multi-level factors are displayed in a single plot.
+
+Predictions and confidence intervals are computed from the design matrix of
+the second-stage IPC regression. Other numeric predictors are set to zero,
+logical predictors to \code{FALSE}, and factors to their reference level.
+Confidence intervals use regression t critical values and the residual
+degrees of freedom of the second-stage regression.
 }
 \examples{
 # Generate data
+set.seed(1)
 ## predictors
-z1 <- rep(0:1, each = 50)
-z2 <- rnorm(n = 100)
-predictors <- data.frame(z1 = z1, z2 = z2)
+group <- rep(0:1, each = 50)
+age <- rnorm(n = 100)
+predictors <- data.frame(group = group, age = age)
 ## Model data
 x <- rnorm(n = 100)
-y <- 0.5 + 0.75*z1 + rnorm(n = 100, sd = sqrt(0.75))
+y <- 0.5 + (0.25 + 0.75 * group) * x +
+  rnorm(n = 100, sd = sqrt(0.75))
 d <- data.frame(x = x, y = y)
 
 # Fit a linear regression
@@ -53,11 +64,11 @@ m <- lm(y ~ x, data = d)
 # Investigate model with IPC regression
 res <- ipcr(m, predictors = predictors)
 
-# Plotting parameter values as a function of the predictors
-## All plots
-plot_differences(res)
-## Plot the values of the regression slope x as a function of the predictor z1
-plot_differences(res, parameter = "x", predictor = "z1")
+# Return all plots in a named list
+plots <- plot_differences(res)
+
+# Plot the values of the regression slope x by group
+plot_differences(res, parameter = "x", predictor = "group")
 
 }
 \seealso{

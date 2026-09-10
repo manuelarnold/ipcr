@@ -9,15 +9,17 @@
 \arguments{
 \item{object}{An object of class \code{"ipcr"}.}
 
-\item{what}{A character string specifying what to display. Options are:
+\item{what}{A single character string specifying what to display. Options are:
 \itemize{
 \item \code{"everything"} (default): Displays all summary components.
 \item \code{"marginal"}: Shows only marginal linear effects.
-\item \code{"ipcr"}: Shows only individual parameter contribution regression coefficients.
+\item \code{"ipcr"}: Shows individual parameter contribution regression
+coefficients and, when log-variance parameterization was used,
+supplementary back-transformed variance effects.
 }}
 
-\item{digits}{An integer indicating the number of decimal places to use in the output.
-Default is 3.}
+\item{digits}{A single nonnegative whole number indicating the number of
+decimal places to use in the output. Default is 3.}
 
 \item{...}{Additional arguments passed to or from other methods.}
 }

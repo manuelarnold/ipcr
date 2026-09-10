@@ -1,22 +1,26 @@
 #' @title Extract Scores
-#' @description This functions extracts the scores of a fitted model. Arguments are passed
-#' to the generic function \code{\link[sandwich]{estfun}}.
+#' @description Extracts the casewise or clusterwise scores of a fitted model
+#' using the score implementation for its backend. Supported lavaan, OpenMx,
+#' and mixed-model objects use their dedicated score extractors; compatible
+#' unsupported model classes are attempted through
+#' \code{\link[sandwich]{estfun}}.
 #' @param x a fitted model object.
 #' @param analytic Logical. If \code{FALSE} (default), functions of
 #' \pkg{lavaan}, \pkg{OpenMx}, or \pkg{sandwich} will be used to compute scores.
-#' If \code{TRUE}, custom functions will be used. This is only relevant for
-#' models fitted with \pkg{OpenMx} where the computation of the scores can take
-#' time. Supports \code{MxRAMModel} without algebras.
-#' @param ... arguments passed to methods.
-#' @return A \code{data.frame} containing the empirical estimating functions. Typically,
-#' this should be an \eqn{n * k} matrix corresponding to \eqn{n} observations and \eqn{k}
-#' parameters. The columns should be named as in \code{\link[stats]{coef}} or
-#' \code{\link[stats]{terms}}, respectively.
+#' If \code{TRUE}, fast analytical scores are requested for a continuous
+#' raw-data \code{MxRAMModel}. Unsupported OpenMx models use numerical scores
+#' with a warning. See \code{\link{ipcr}} for the supported analytical scope.
+#' @param ... Additional arguments passed to the backend-specific score method.
+#' @return A numeric matrix containing the empirical estimating functions.
+#' Typically, this is an \eqn{n * k} matrix corresponding to \eqn{n} IPC units
+#' (clusters for mixed models) and \eqn{k} parameters. Its columns are named
+#' according to the fitted model parameters.
 #'
 #' The estimating function (or score function) for a model is the derivative of the
 #' objective function with respect to the parameter vector. The empirical estimating
-#' functions is the evaluation of the estimating function at the observed data (\eqn{n}
-#' observations) and the estimated parameters (of dimension \eqn{k}).
+#' functions are the evaluations of the estimating function at the observed
+#' data (\eqn{n} observations) and the estimated parameters (of dimension
+#' \eqn{k}).
 #' @references
 #' Zeileis, A.  (2006). Object-oriented computation of sandwich estimators. \emph{Journal of Statistical Software, 16}(9),
 #' 1-16. doi: \href{https://doi.org/10.18637/jss.v016.i09}{10.18637/jss.v016.i09}
@@ -28,5 +32,11 @@
 #' @export
 
 get_scores <- function(x, analytic = FALSE, ...) {
-  data.frame(estfun_ipcr(x, analytic = analytic, ...))
+  analytic <- prepare_model_ipcr(x, analytic)
+  check_model_convergence_ipcr(x)
+  validate_scores_ipcr(
+    param_estimates = coef_ipcr(x),
+    scores = estfun_ipcr(x, analytic = analytic, ...),
+    n = nobs_ipcr(x)
+  )
 }

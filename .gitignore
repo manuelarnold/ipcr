@@ -2,4 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
-ipcr.Rproj
+.Rcheck/
+*.Rcheck/
+*.tar.gz
+.DS_Store
+tests/manual/Monte-Carlo-Simulation/Simulation-1/Results/*
+!tests/manual/Monte-Carlo-Simulation/Simulation-1/Results/.gitkeep
+!tests/manual/Monte-Carlo-Simulation/Simulation-1/Results/*.qmd
